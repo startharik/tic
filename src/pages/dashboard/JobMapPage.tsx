@@ -9,9 +9,6 @@ import {
   Plus, 
   Navigation,
   Layers,
-  MapPin,
-  Clock,
-  User,
   MoreVertical
 } from 'lucide-react';
 

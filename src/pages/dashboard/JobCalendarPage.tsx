@@ -1,20 +1,15 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   ChevronLeft, 
   ChevronRight, 
   Plus, 
   Search, 
-  Filter,
-  Calendar as CalendarIcon,
-  Clock,
-  User,
-  MapPin
+  Filter
 } from 'lucide-react';
 
 const JobCalendarPage: React.FC = () => {
   const navigate = useNavigate();
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 4, 13)); // May 13, 2026
 
   const daysInMonth = 31;
   const firstDayOfMonth = 5; // Friday

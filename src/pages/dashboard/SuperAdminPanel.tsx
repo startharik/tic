@@ -7,8 +7,6 @@ import {
   Database, 
   Activity, 
   Lock, 
-  Download,
-  MoreVertical,
   TrendingUp,
   Server
 } from 'lucide-react';

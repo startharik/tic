@@ -13,7 +13,7 @@ import {
   ExternalLink,
   MapPin,
   Calendar,
-  Tool
+  Wrench
 } from 'lucide-react';
 
 const AssetDetailsPage: React.FC = () => {
@@ -97,7 +97,7 @@ const AssetDetailsPage: React.FC = () => {
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-4">
                 <div className="flex items-start gap-3">
-                  <div className="p-2 bg-blue-50 rounded-lg"><Tool className="h-4 w-4 text-blue-600" /></div>
+                  <div className="p-2 bg-blue-50 rounded-lg"><Wrench className="h-4 w-4 text-blue-600" /></div>
                   <div>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Manufacturer / Model</p>
                     <p className="text-sm font-bold text-slate-900">{asset.model}</p>

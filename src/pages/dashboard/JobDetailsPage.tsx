@@ -9,10 +9,8 @@ import {
   FileText, 
   History, 
   MessageSquare, 
-  MoreVertical,
   Edit,
   CheckCircle,
-  AlertCircle,
   Paperclip,
   Download,
   ExternalLink

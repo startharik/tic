@@ -7,7 +7,6 @@ import {
   Clock, 
   MapPin, 
   CheckCircle, 
-  AlertCircle,
   MessageSquare,
   Camera,
   FileText

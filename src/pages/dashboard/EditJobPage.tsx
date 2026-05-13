@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, 
   Save, 
-  X, 
   Calendar as CalendarIcon, 
   Clock, 
   User, 

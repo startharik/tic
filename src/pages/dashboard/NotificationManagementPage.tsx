@@ -1,10 +1,7 @@
 import React from 'react';
 import { 
-  Bell, 
   Send, 
   Plus, 
-  Search, 
-  Filter, 
   Mail, 
   MessageSquare, 
   Smartphone,

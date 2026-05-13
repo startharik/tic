@@ -1,8 +1,6 @@
 import React from 'react';
 import { 
-  Camera, 
   Video, 
-  Image as ImageIcon, 
   Search, 
   Filter, 
   Download, 

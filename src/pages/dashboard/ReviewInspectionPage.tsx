@@ -7,7 +7,6 @@ import {
   AlertCircle, 
   FileText, 
   User, 
-  Calendar,
   Camera,
   MessageSquare,
   ShieldCheck,
