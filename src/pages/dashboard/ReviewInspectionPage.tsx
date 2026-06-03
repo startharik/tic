@@ -9,7 +9,6 @@ import {
   User, 
   Camera,
   ShieldCheck,
-  Download,
   Eye
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';

@@ -804,12 +804,12 @@ export interface DocumentFolder {
 
 export interface Notification {
   id: string;
-  user_id?: string;
+  user_id?: string | null;
   title: string;
   message?: string;
   type?: string;
   is_read: boolean;
-  related_job_id?: string;
+  related_job_id?: string | null;
   created_at: string;
   users?: { first_name?: string; last_name?: string };
   jobs?: { title?: string };
