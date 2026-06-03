@@ -66,8 +66,8 @@ const NotificationManagementPage: React.FC = () => {
         message: newNotification.message,
         type: newNotification.type,
         is_read: false,
-        user_id: newNotification.user_id ? newNotification.user_id : null,
-        related_job_id: newNotification.related_job_id ? newNotification.related_job_id : null,
+        user_id: newNotification.user_id ? newNotification.user_id : undefined,
+        related_job_id: newNotification.related_job_id ? newNotification.related_job_id : undefined,
       };
       
       await createNotification(notificationData);
