@@ -9,7 +9,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getClients, getUsers, getBranches, getEquipment, getJob, updateJob, geocodeAddressNominatim } from '../../services/supabaseService';
+import { getClients, getUsers, getSalesUsers, getBranches, getEquipment, getJob, updateJob, geocodeAddressNominatim } from '../../services/supabaseService';
 import type { Client, User, Branch, Equipment } from '../../services/supabaseService';
 import { MapContainer, Marker, TileLayer, useMapEvents, Popup } from 'react-leaflet';
 import L from 'leaflet';
@@ -37,6 +37,7 @@ const EditJobPage: React.FC = () => {
   const [fetchingData, setFetchingData] = useState(true);
   const [clients, setClients] = useState<Client[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [salesUsers, setSalesUsers] = useState<User[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
   const [initialSiteAddress, setInitialSiteAddress] = useState<string>('');
@@ -46,6 +47,7 @@ const EditJobPage: React.FC = () => {
     branch_id: '',
     equipment_id: '',
     assigned_to: '',
+    assigned_sales_id: '',
     title: '',
     description: '',
     status: 'assigned' as const,
@@ -110,15 +112,17 @@ const EditJobPage: React.FC = () => {
       try {
         setFetchingData(true);
         if (!jobId) return;
-        const [jobData, clientsData, usersData, branchesData, equipmentData] = await Promise.all([
+        const [jobData, clientsData, usersData, salesUsersData, branchesData, equipmentData] = await Promise.all([
           getJob(jobId),
           getClients(),
           getUsers(),
+          getSalesUsers(),
           getBranches(),
           getEquipment()
         ]);
         setClients(clientsData);
         setUsers(usersData);
+        setSalesUsers(salesUsersData);
         setBranches(branchesData);
         setEquipmentList(equipmentData);
         setInitialSiteAddress(jobData.site_address || '');
@@ -132,6 +136,7 @@ const EditJobPage: React.FC = () => {
           branch_id: jobData.branch_id || '',
           equipment_id: jobData.equipment_id || '',
           assigned_to: jobData.assigned_to || '',
+          assigned_sales_id: jobData.assigned_sales_id || '',
           title: jobData.title,
           description: jobData.description || '',
           status: jobData.status as any,
@@ -172,6 +177,7 @@ const EditJobPage: React.FC = () => {
         branch_id: formData.branch_id || undefined,
         equipment_id: formData.equipment_id || undefined,
         assigned_to: formData.assigned_to || undefined,
+        assigned_sales_id: formData.assigned_sales_id || undefined,
         title: formData.title,
         description: formData.description || undefined,
         status: formData.status,
@@ -487,6 +493,19 @@ const EditJobPage: React.FC = () => {
                 >
                   <option value="">Select Engineer</option>
                   {users.map((user) => (
+                    <option key={user.id} value={user.id}>{user.first_name} {user.last_name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Assign Sales Person</label>
+                <select 
+                  value={formData.assigned_sales_id}
+                  onChange={(e) => setFormData({ ...formData, assigned_sales_id: e.target.value })}
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+                >
+                  <option value="">Select Sales Person</option>
+                  {salesUsers.map((user) => (
                     <option key={user.id} value={user.id}>{user.first_name} {user.last_name}</option>
                   ))}
                 </select>

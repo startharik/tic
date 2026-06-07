@@ -79,6 +79,7 @@ export interface Job {
   branch_id?: string;
   equipment_id?: string;
   assigned_to?: string;
+  assigned_sales_id?: string;
   created_by?: string;
   title: string;
   description?: string;
@@ -96,6 +97,7 @@ export interface Job {
   branches?: { id: string; name: string };
   equipment?: { id: string; name: string };
   assigned_users?: { id: string; first_name: string; last_name: string };
+  assigned_sales_users?: { id: string; first_name: string; last_name: string };
   created_by_users?: { id: string; first_name: string; last_name: string };
 }
 
@@ -190,6 +192,15 @@ export const getUsers = async (): Promise<User[]> => {
     *,
     branches (id, name)
   `).order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+};
+
+export const getSalesUsers = async (): Promise<User[]> => {
+  const { data, error } = await supabase.from('users').select(`
+    *,
+    branches (id, name)
+  `).eq('role', 'sales').order('first_name', { ascending: false });
   if (error) throw error;
   return data || [];
 };
@@ -292,6 +303,7 @@ export const getJobs = async (): Promise<Job[]> => {
     branches (id, name),
     equipment (id, name),
     assigned_users:users!jobs_assigned_to_fkey(id, first_name, last_name),
+    assigned_sales_users:users!jobs_assigned_sales_id_fkey(id, first_name, last_name),
     created_by_users:users!jobs_created_by_fkey(id, first_name, last_name)
   `).order('created_at', { ascending: false });
   if (error) throw error;
@@ -305,6 +317,7 @@ export const getJob = async (id: string): Promise<Job> => {
     branches (id, name),
     equipment (id, name),
     assigned_users:users!jobs_assigned_to_fkey(id, first_name, last_name),
+    assigned_sales_users:users!jobs_assigned_sales_id_fkey(id, first_name, last_name),
     created_by_users:users!jobs_created_by_fkey(id, first_name, last_name)
   `).eq('id', id).single();
   if (error) throw error;
@@ -318,6 +331,7 @@ export const createJob = async (job: Omit<Job, 'id' | 'created_at' | 'updated_at
     branches (id, name),
     equipment (id, name),
     assigned_users:users!jobs_assigned_to_fkey(id, first_name, last_name),
+    assigned_sales_users:users!jobs_assigned_sales_id_fkey(id, first_name, last_name),
     created_by_users:users!jobs_created_by_fkey(id, first_name, last_name)
   `).single();
   if (error) throw error;
@@ -331,6 +345,7 @@ export const updateJob = async (id: string, job: Partial<Omit<Job, 'id' | 'creat
     branches (id, name),
     equipment (id, name),
     assigned_users:users!jobs_assigned_to_fkey(id, first_name, last_name),
+    assigned_sales_users:users!jobs_assigned_sales_id_fkey(id, first_name, last_name),
     created_by_users:users!jobs_created_by_fkey(id, first_name, last_name)
   `).single();
   if (error) throw error;
