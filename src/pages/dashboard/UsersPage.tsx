@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { 
   Users as UsersIcon, 
   UserPlus, 
-  Mail, 
   Phone, 
   Shield, 
   Search,
@@ -14,8 +13,8 @@ import {
   Loader2,
   Edit2,
   Trash2
-} from 'lucide-react';
-import { getUsers, getBranches, deleteUser } from '../../services/supabaseService';
+} from 'lucide-react'
+import { getUsers, getBranches, deleteUser } from '../../services/supabaseService'
 import type { User as UserType, Branch } from '../../services/supabaseService';
 
 const RoleBadge = ({ role }: { role: string }) => {
@@ -33,10 +32,10 @@ const RoleBadge = ({ role }: { role: string }) => {
 };
 
 const UsersPage: React.FC = () => {
-  const navigate = useNavigate();
-  const [users, setUsers] = useState<UserType[]>([]);
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate()
+  const [users, setUsers] = useState<UserType[]>([])
+  const [branches, setBranches] = useState<Branch[]>([])
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -57,7 +56,7 @@ const UsersPage: React.FC = () => {
   };
 
   const getBranchName = (branchId?: string) => {
-    return branches.find(b => b.id === branchId)?.name || 'N/A';
+    return branches.find(b => b.id === branchId)?.name || 'N/A'
   };
 
   const getUserName = (user: UserType) => {
@@ -161,97 +160,93 @@ const UsersPage: React.FC = () => {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50">
-                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">User</th>
-                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Role & Branch</th>
-                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Contact</th>
-                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {users.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
-                    No users found.
-                  </td>
-                </tr>
-              ) : (
-                users.map((user) => (
-                  <tr key={user.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold border-2 border-white shadow-sm">
-                          {getUserName(user).split(' ').map(n => n[0]).join('')}
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-semibold text-slate-900">{getUserName(user)}</span>
-                          <span className="text-xs text-slate-500">ID: {user.id.slice(0, 8)}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col space-y-1">
-                        <RoleBadge role={user.role} />
-                        <div className="flex items-center space-x-1 text-xs text-slate-500">
-                          <MapPin className="h-3 w-3" />
-                          <span>{getBranchName(user.branch_id)}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col space-y-1">
-                        <div className="flex items-center space-x-2 text-xs text-slate-600">
-                          <Mail className="h-3 w-3" />
-                          <span>User email (from auth)</span>
-                        </div>
-                        {user.phone && (
-                          <div className="flex items-center space-x-2 text-xs text-slate-600">
-                            <Phone className="h-3 w-3" />
-                            <span>{user.phone}</span>
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`flex items-center space-x-1.5 text-xs font-medium ${user.is_active ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        {user.is_active ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-                        <span>{user.is_active ? 'Active' : 'Inactive'}</span>
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end space-x-2">
-                        <button
-                          type="button"
-                          onClick={() => navigate(`/admin/users/${user.id}/edit`)}
-                          className="p-2 text-slate-400 hover:text-primary-600 rounded-lg hover:bg-primary-50 transition-colors"
-                          title="Edit user"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            if (confirm('Are you sure you want to delete this user?')) {
-                              try {
-                                await deleteUser(user.id);
-                                fetchData();
-                              } catch (err) {
-                                console.error('Error deleting user:', err);
-                              }
-                            }
-                          }}
-                          className="p-2 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
-                          title="Delete user"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
+                  <tr className="bg-slate-50">
+                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">User</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Role & Branch</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Contact</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Actions</th>
                   </tr>
-                ))
-              )}
-            </tbody>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {users.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                        No users found.
+                      </td>
+                    </tr>
+                  ) : (
+                    users.map((user) => (
+                      <tr key={user.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center space-x-3">
+                            <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold border-2 border-white shadow-sm">
+                              {getUserName(user).split(' ').map(n => n[0]).join('')}
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-semibold text-slate-900">{getUserName(user)}</span>
+                              <span className="text-xs text-slate-500">ID: {user.id.slice(0, 8)}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col space-y-1">
+                            <RoleBadge role={user.role} />
+                            <div className="flex items-center space-x-1 text-xs text-slate-500">
+                              <MapPin className="h-3 w-3" />
+                              <span>{getBranchName(user.branch_id)}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col space-y-1">
+                            {user.phone && (
+                              <div className="flex items-center space-x-2 text-xs text-slate-600">
+                                <Phone className="h-3 w-3" />
+                                <span>{user.phone}</span>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`flex items-center space-x-1.5 text-xs font-medium ${user.is_active ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            {user.is_active ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                            <span>{user.is_active ? 'Active' : 'Inactive'}</span>
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end space-x-2">
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/admin/users/${user.id}/edit`)}
+                              className="p-2 text-slate-400 hover:text-primary-600 rounded-lg hover:bg-primary-50 transition-colors"
+                              title="Edit user"
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (confirm('Are you sure you want to delete this user?')) {
+                                  try {
+                                    await deleteUser(user.id);
+                                    fetchData();
+                                  } catch (err) {
+                                    console.error('Error deleting user:', err);
+                                  }
+                                }
+                              }}
+                              className="p-2 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
+                              title="Delete user"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
           </table>
         </div>
       </div>

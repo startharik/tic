@@ -12,7 +12,7 @@ import {
   Eye
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { getInspectionById, updateInspection, type Inspection, createNotification } from '../../services/supabaseService';
+import { getInspectionById, updateInspection, updateJob, type Inspection, createNotification } from '../../services/supabaseService';
 import { useAuth } from '../../contexts/AuthContext';
 
 const ReviewInspectionPage: React.FC = () => {
@@ -24,7 +24,14 @@ const ReviewInspectionPage: React.FC = () => {
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
   const [inspection, setInspection] = useState<Inspection | null>(null);
-  const [media, setMedia] = useState<Array<{ id: string; file_url: string; file_type: string; file_name: string }>>([]);
+  const [media, setMedia] = useState<Array<{ 
+    id: string; 
+    file_url: string; 
+    file_type: string; 
+    file_name: string;
+    watermark_data?: any;
+    created_at: string;
+  }>>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -41,7 +48,7 @@ const ReviewInspectionPage: React.FC = () => {
 
         const { data: mediaRows, error: mediaError } = await supabase
           .from('media')
-          .select('id,file_url,file_type,file_name')
+          .select('id,file_url,file_type,file_name,watermark_data,created_at')
           .eq('inspection_id', id)
           .order('created_at', { ascending: false });
         if (mediaError) throw mediaError;
@@ -90,6 +97,13 @@ const ReviewInspectionPage: React.FC = () => {
       });
       setInspection(updated);
 
+      // Update job status to completed
+      if (inspection?.job_id) {
+        await updateJob(inspection.job_id, {
+          status: 'completed',
+        });
+      }
+
       // Send notification to inspector
       if (inspection?.inspector_id) {
         await createNotification({
@@ -98,6 +112,19 @@ const ReviewInspectionPage: React.FC = () => {
           message: `Your inspection for job "${inspection.jobs?.title || 'N/A'}" has been approved!`,
           type: 'success',
           is_read: false,
+          related_job_id: inspection.job_id,
+        });
+      }
+
+      // Send notification to sales person
+      if (inspection?.jobs?.sales_person_id) {
+        await createNotification({
+          user_id: inspection.jobs.sales_person_id,
+          title: 'Job Completed!',
+          message: `Job "${inspection.jobs?.title || 'N/A'}" has been approved! You can now download the photos.`,
+          type: 'success',
+          is_read: false,
+          related_job_id: inspection.job_id,
         });
       }
     } catch (e: any) {
@@ -108,7 +135,7 @@ const ReviewInspectionPage: React.FC = () => {
   };
 
   const handleReject = async () => {
-    if (!id) return;
+    if (!id || !inspection?.job_id) return;
     setIsRejecting(true);
     try {
       const updated = await updateInspection(id, {
@@ -116,6 +143,11 @@ const ReviewInspectionPage: React.FC = () => {
         rejection_reason: reviewNote || 'Rejected',
       });
       setInspection(updated);
+
+      // Update job status to rejected
+      await updateJob(inspection.job_id, {
+        status: 'rejected',
+      });
 
       // Send notification to inspector
       if (inspection?.inspector_id) {
@@ -125,6 +157,19 @@ const ReviewInspectionPage: React.FC = () => {
           message: `Your inspection for job "${inspection.jobs?.title || 'N/A'}" has been rejected. Please rework: ${reviewNote || 'See review notes'}`,
           type: 'error',
           is_read: false,
+          related_job_id: inspection.job_id,
+        });
+      }
+
+      // Send notification to sales person
+      if (inspection?.jobs?.sales_person_id) {
+        await createNotification({
+          user_id: inspection.jobs.sales_person_id,
+          title: 'Inspection Rejected',
+          message: `Inspection for job "${inspection.jobs?.title || 'N/A'}" has been rejected: ${reviewNote || 'See review notes'}`,
+          type: 'error',
+          is_read: false,
+          related_job_id: inspection.job_id,
         });
       }
     } catch (e: any) {
@@ -210,25 +255,56 @@ const ReviewInspectionPage: React.FC = () => {
               {media.length === 0 ? (
                 <div className="text-sm text-slate-600">No media uploaded.</div>
               ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {media
                     .filter((m) => m.file_type === 'image')
                     .slice(0, 12)
-                    .map((m) => (
-                      <a
-                        key={m.id}
-                        href={m.file_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="group relative rounded-lg overflow-hidden border border-slate-200 bg-slate-50"
-                        title={m.file_name}
-                      >
-                        <img src={m.file_url} className="w-full h-28 object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
-                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/25">
-                          <Eye className="h-5 w-5 text-white" />
+                    .map((m) => {
+                      const timestamp = m.watermark_data?.timestamp 
+                        ? new Date(m.watermark_data.timestamp).toLocaleString() 
+                        : new Date(m.created_at).toLocaleString();
+                      const lat = m.watermark_data?.gps?.latitude;
+                      const lng = m.watermark_data?.gps?.longitude;
+                      const mapsUrl = lat && lng 
+                        ? `https://www.google.com/maps?q=${lat},${lng}`
+                        : null;
+                      
+                      return (
+                        <div key={m.id} className="group flex flex-col gap-2">
+                          <a
+                            href={m.file_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="relative rounded-lg overflow-hidden border border-slate-200 bg-slate-50"
+                            title={m.file_name}
+                          >
+                            <img src={m.file_url} className="w-full h-28 object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
+                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/25">
+                              <Eye className="h-5 w-5 text-white" />
+                            </div>
+                          </a>
+                          <div className="flex flex-col gap-1 px-1">
+                            <span className="text-xs text-slate-500">{timestamp}</span>
+                            {mapsUrl ? (
+                              <a 
+                                href={mapsUrl} 
+                                target="_blank" 
+                                rel="noreferrer"
+                                className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                              >
+                                <span>📍</span>
+                                {lat.toFixed(6)}, {lng.toFixed(6)}
+                              </a>
+                            ) : (
+                              <span className="text-xs text-slate-400 flex items-center gap-1">
+                                <span>📍</span>
+                                Location not available
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </a>
-                    ))}
+                      );
+                    })}
                 </div>
               )}
             </div>

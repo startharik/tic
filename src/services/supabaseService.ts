@@ -74,29 +74,31 @@ export interface Equipment {
 }
 
 export interface Job {
-  id: string;
-  client_id: string;
-  branch_id?: string;
-  equipment_id?: string;
-  assigned_to?: string;
-  created_by?: string;
-  title: string;
-  description?: string;
-  status: string;
-  priority: string;
-  site_address?: string;
-  site_latitude?: number;
-  site_longitude?: number;
-  scheduled_date?: string;
-  due_date?: string;
-  completed_date?: string;
-  created_at: string;
-  updated_at: string;
-  clients?: { id: string; name: string };
-  branches?: { id: string; name: string };
-  equipment?: { id: string; name: string };
-  assigned_users?: { id: string; first_name: string; last_name: string };
-  created_by_users?: { id: string; first_name: string; last_name: string };
+    id: string;
+    client_id: string;
+    branch_id?: string;
+    equipment_id?: string;
+    assigned_to?: string;
+    sales_person_id?: string;
+    created_by?: string;
+    title: string;
+    description?: string;
+    status: string;
+    priority: string;
+    site_address?: string;
+    site_latitude?: number;
+    site_longitude?: number;
+    scheduled_date?: string;
+    due_date?: string;
+    completed_date?: string;
+    created_at: string;
+    updated_at: string;
+    clients?: { id: string; name: string };
+    branches?: { id: string; name: string };
+    equipment?: { id: string; name: string };
+    assigned_users?: { id: string; first_name: string; last_name: string };
+    created_by_users?: { id: string; first_name: string; last_name: string };
+    sales_person?: { id: string; first_name: string; last_name: string };
 }
 
 export interface Inspection {
@@ -113,7 +115,7 @@ export interface Inspection {
   rejection_reason?: string;
   created_at: string;
   updated_at: string;
-  jobs?: { id: string; title: string };
+  jobs?: { id: string; title: string; sales_person_id?: string };
   equipment?: { id: string; name: string };
   inspector?: { id: string; first_name: string; last_name: string };
 }
@@ -292,7 +294,8 @@ export const getJobs = async (): Promise<Job[]> => {
     branches (id, name),
     equipment (id, name),
     assigned_users:users!jobs_assigned_to_fkey(id, first_name, last_name),
-    created_by_users:users!jobs_created_by_fkey(id, first_name, last_name)
+    created_by_users:users!jobs_created_by_fkey(id, first_name, last_name),
+    sales_person:users!jobs_sales_person_id_fkey(id, first_name, last_name)
   `).order('created_at', { ascending: false });
   if (error) throw error;
   return data || [];
@@ -305,7 +308,8 @@ export const getJob = async (id: string): Promise<Job> => {
     branches (id, name),
     equipment (id, name),
     assigned_users:users!jobs_assigned_to_fkey(id, first_name, last_name),
-    created_by_users:users!jobs_created_by_fkey(id, first_name, last_name)
+    created_by_users:users!jobs_created_by_fkey(id, first_name, last_name),
+    sales_person:users!jobs_sales_person_id_fkey(id, first_name, last_name)
   `).eq('id', id).single();
   if (error) throw error;
   return data;
@@ -318,7 +322,8 @@ export const createJob = async (job: Omit<Job, 'id' | 'created_at' | 'updated_at
     branches (id, name),
     equipment (id, name),
     assigned_users:users!jobs_assigned_to_fkey(id, first_name, last_name),
-    created_by_users:users!jobs_created_by_fkey(id, first_name, last_name)
+    created_by_users:users!jobs_created_by_fkey(id, first_name, last_name),
+    sales_person:users!jobs_sales_person_id_fkey(id, first_name, last_name)
   `).single();
   if (error) throw error;
   return data;
@@ -331,7 +336,8 @@ export const updateJob = async (id: string, job: Partial<Omit<Job, 'id' | 'creat
     branches (id, name),
     equipment (id, name),
     assigned_users:users!jobs_assigned_to_fkey(id, first_name, last_name),
-    created_by_users:users!jobs_created_by_fkey(id, first_name, last_name)
+    created_by_users:users!jobs_created_by_fkey(id, first_name, last_name),
+    sales_person:users!jobs_sales_person_id_fkey(id, first_name, last_name)
   `).single();
   if (error) throw error;
   return data;
@@ -423,7 +429,7 @@ export const getInspectionById = async (id: string): Promise<Inspection> => {
     .from('inspections')
     .select(`
       *,
-      jobs (id, title),
+      jobs (id, title, sales_person_id),
       equipment (id, name),
       inspector:users!inspections_inspector_id_fkey (id, first_name, last_name)
     `)
@@ -482,6 +488,7 @@ export const getDashboardStats = async () => {
     inProgress: statusCounts['in_progress'] || 0,
     assigned: statusCounts['assigned'] || 0,
     submitted: statusCounts['submitted'] || 0,
+    completed: statusCounts['completed'] || 0,
     approved: statusCounts['approved'] || 0,
     rejected: statusCounts['rejected'] || 0,
     closed: statusCounts['closed'] || 0,
@@ -833,6 +840,26 @@ export const createNotification = async (notification: Omit<Notification, 'id' |
     .single();
 
   if (error) throw error;
+
+  // Trigger push notification via Edge Function
+  try {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+    const functionUrl = `${supabaseUrl}/functions/v1/send-push-notification`;
+    
+    await fetch(functionUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY || '',
+        'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ''}`,
+      },
+      body: JSON.stringify({ notification_id: data.id }),
+    });
+  } catch (err) {
+    console.error('Error triggering push notification:', err);
+    // Don't fail the whole operation if push notification fails
+  }
+
   return data;
 };
 

@@ -96,10 +96,14 @@ const ChatPage: React.FC = () => {
         setLoading(true);
         const jobList = await getJobs();
         const role = userProfile?.role;
-        const filteredJobs =
-          role === 'engineer'
-            ? jobList.filter((j) => j.assigned_to === user?.id)
-            : jobList;
+        let filteredJobs: Job[];
+        if (role === 'engineer') {
+          filteredJobs = jobList.filter((j) => j.assigned_to === user?.id);
+        } else if (role === 'sales') {
+          filteredJobs = jobList.filter((j) => j.sales_person_id === user?.id);
+        } else {
+          filteredJobs = jobList;
+        }
 
         setJobs(filteredJobs);
 
@@ -295,11 +299,20 @@ const ChatPage: React.FC = () => {
                 lastMsg?.media
                   ? lastMsg.message || (lastMsg.media.file_type === 'image' ? 'Photo' : 'Video')
                   : lastMsg?.message || 'No messages yet';
-              const title = lastUser 
+              let title = lastUser 
                 ? `${lastUser.first_name || ''} ${lastUser.last_name || ''}`.trim() || 'Unknown' 
-                : job.assigned_users
-                  ? `${job.assigned_users.first_name} ${job.assigned_users.last_name}`.trim() || job.title || 'Job Chat'
-                  : job.title || 'Job Chat';
+                : job.title || 'Job Chat';
+              
+              const participants = [];
+              if (job.assigned_users) {
+                participants.push(`${job.assigned_users.first_name} ${job.assigned_users.last_name}`.trim());
+              }
+              if (job.sales_person) {
+                participants.push(`${job.sales_person.first_name} ${job.sales_person.last_name}`.trim());
+              }
+              if (participants.length > 0 && !lastUser) {
+                title = participants.join(' ↔ ');
+              }
               const subtitle = `${job.title || 'Job'}${job.clients?.name ? ` • ${job.clients.name}` : ''}`;
               
               return (

@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, 
   Calendar, 
-  Clock, 
   MapPin, 
   User as UserIcon, 
   FileText, 
@@ -12,13 +11,14 @@ import {
   CheckCircle,
   Loader2
 } from 'lucide-react';
-import { getJob, getUsers, getClients } from '../../services/supabaseService';
+import { getJob, getUsers, getClients, updateJob, createNotification } from '../../services/supabaseService';
 import type { Job, User, Client } from '../../services/supabaseService';
 
 const JobDetailsPage: React.FC = () => {
   const { jobId } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
   const [job, setJob] = useState<Job | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -77,6 +77,43 @@ const JobDetailsPage: React.FC = () => {
     return `JB-${short}`;
   };
 
+  const handleApproveReport = async () => {
+    if (!job) return;
+    try {
+      setActionLoading(true);
+      const updatedJob = await updateJob(job.id, { status: 'approved' });
+      setJob(updatedJob);
+      
+      // Send notifications
+      if (updatedJob.assigned_to) {
+        await createNotification({
+          user_id: updatedJob.assigned_to,
+          title: 'Job Approved!',
+          message: `Your inspection for job "${updatedJob.title}" has been approved by admin.`,
+          type: 'success',
+          related_job_id: updatedJob.id,
+          is_read: false,
+        });
+      }
+      if (updatedJob.sales_person_id) {
+        await createNotification({
+          user_id: updatedJob.sales_person_id,
+          title: 'Job Approved!',
+          message: `The job "${updatedJob.title}" has been approved. You can download photos now.`,
+          type: 'success',
+          related_job_id: updatedJob.id,
+          is_read: false,
+        });
+      }
+      alert('Report approved successfully!');
+    } catch (error) {
+      console.error('Error approving report:', error);
+      alert('Failed to approve report. Please try again.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -122,10 +159,16 @@ const JobDetailsPage: React.FC = () => {
             <Edit className="h-4 w-4" />
             <span>Edit Job</span>
           </button>
-          <button className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 shadow-lg shadow-primary-200 transition-all">
-            <CheckCircle className="h-4 w-4" />
-            <span>Approve Report</span>
-          </button>
+          {job.status === 'submitted' && (
+            <button 
+              onClick={handleApproveReport}
+              disabled={actionLoading}
+              className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 shadow-lg shadow-primary-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+              <span>Approve Report</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -149,6 +192,15 @@ const JobDetailsPage: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
+                  <div className="mt-1 p-2 bg-pink-50 rounded-lg">
+                    <UserIcon className="h-4 w-4 text-pink-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-slate-500 uppercase">Sales Person</p>
+                    <p className="text-sm font-semibold text-slate-900">{getUserName(job.sales_person_id)}</p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-3">
                   <div className="mt-1 p-2 bg-emerald-50 rounded-lg">
                     <Calendar className="h-4 w-4 text-emerald-600" />
                   </div>
@@ -157,15 +209,6 @@ const JobDetailsPage: React.FC = () => {
                     <p className="text-sm font-semibold text-slate-900">
                       {job.scheduled_date ? new Date(job.scheduled_date).toLocaleDateString() : 'Not Scheduled'}
                     </p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="mt-1 p-2 bg-amber-50 rounded-lg">
-                    <Clock className="h-4 w-4 text-amber-600" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium text-slate-500 uppercase">Scheduled Time</p>
-                    <p className="text-sm font-semibold text-slate-900">N/A</p>
                   </div>
                 </div>
               </div>

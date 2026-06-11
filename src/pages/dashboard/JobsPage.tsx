@@ -24,6 +24,7 @@ const StatusBadge = ({ status }: { status: string }) => {
     'assigned': 'bg-indigo-100 text-indigo-700',
     'submitted': 'bg-purple-100 text-purple-700',
     'approved': 'bg-emerald-100 text-emerald-700',
+    'completed': 'bg-emerald-100 text-emerald-700',
     'rejected': 'bg-rose-100 text-rose-700',
     'closed': 'bg-slate-100 text-slate-700',
   };
@@ -272,7 +273,9 @@ const JobsPage: React.FC = () => {
             <option value="in_progress">In Progress</option>
             <option value="submitted">Submitted</option>
             <option value="approved">Approved</option>
+            <option value="completed">Completed</option>
             <option value="closed">Closed</option>
+            <option value="rejected">Rejected</option>
           </select>
           <button className="flex items-center space-x-2 px-4 py-2 bg-slate-50 border-transparent rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors">
             <Filter className="h-4 w-4" />
@@ -310,6 +313,7 @@ const JobsPage: React.FC = () => {
                     <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Job ID</th>
                     <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Client & Type</th>
                     <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Engineer</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Sales Person</th>
                     <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Scheduled Date</th>
                     <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Priority</th>
                     <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
@@ -319,6 +323,7 @@ const JobsPage: React.FC = () => {
                 <tbody className="divide-y divide-slate-100">
                   {filteredJobs.map((job) => {
                     const assignedEngineer = getUserName(job.assigned_to);
+                    const assignedSalesPerson = getUserName(job.sales_person_id);
                     const clientName = getClientName(job.client_id);
                     return (
                       <tr
@@ -351,6 +356,16 @@ const JobsPage: React.FC = () => {
                             </div>
                             <span className={`text-sm ${assignedEngineer === 'Unassigned' ? 'text-slate-400 italic' : 'text-slate-600'}`}>
                               {assignedEngineer}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center space-x-2">
+                            <div className="h-7 w-7 rounded-full bg-green-100 flex items-center justify-center text-[10px] font-bold text-green-600">
+                              {assignedSalesPerson === 'Unassigned' ? '?' : assignedSalesPerson.split(' ').map(n => n[0]).join('')}
+                            </div>
+                            <span className={`text-sm ${assignedSalesPerson === 'Unassigned' ? 'text-slate-400 italic' : 'text-slate-600'}`}>
+                              {assignedSalesPerson}
                             </span>
                           </div>
                         </td>
