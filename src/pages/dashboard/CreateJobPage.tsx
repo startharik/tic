@@ -37,11 +37,13 @@ const CreateJobPage: React.FC = () => {
     branch_id: '',
     equipment_id: '',
     assigned_to: '',
+    trainer_id: '',
     sales_person_id: '',
     title: '',
     description: '',
     status: 'assigned',
     priority: 'medium',
+    type: 'inspection',
     site_address: '',
     site_latitude: '',
     site_longitude: '',
@@ -143,12 +145,14 @@ const CreateJobPage: React.FC = () => {
         branch_id: formData.branch_id || undefined,
         equipment_id: formData.equipment_id || undefined,
         assigned_to: formData.assigned_to || undefined,
+        trainer_id: formData.trainer_id || undefined,
         sales_person_id: formData.sales_person_id || undefined,
         created_by: user?.id,
         title: formData.title,
         description: formData.description || undefined,
         status: formData.status,
         priority: formData.priority,
+        type: formData.type,
         site_address: address || undefined,
         site_latitude: coords?.lat,
         site_longitude: coords?.lng,
@@ -161,6 +165,17 @@ const CreateJobPage: React.FC = () => {
           user_id: formData.assigned_to,
           title: "New Job Assigned",
           message: `You have been assigned to job: ${formData.title}`,
+          type: formData.priority === 'urgent' ? 'warning' : 'info',
+          related_job_id: createdJob.id,
+          is_read: false,
+        });
+      }
+      
+      if (formData.trainer_id) {
+        await createNotification({
+          user_id: formData.trainer_id,
+          title: "New Training Job Assigned",
+          message: `You have been assigned as trainer to job: ${formData.title}`,
           type: formData.priority === 'urgent' ? 'warning' : 'info',
           related_job_id: createdJob.id,
           is_read: false,
@@ -272,6 +287,18 @@ const CreateJobPage: React.FC = () => {
                         {branch.name}
                       </option>
                     ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">Job Type</label>
+                  <select
+                    value={formData.type}
+                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+                  >
+                    <option value="inspection">Inspection</option>
+                    <option value="training">Training</option>
                   </select>
                 </div>
 
@@ -501,6 +528,21 @@ const CreateJobPage: React.FC = () => {
                   ))}
                 </select>
               </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Assign Trainer</label>
+                <select 
+                  value={formData.trainer_id}
+                  onChange={(e) => setFormData({ ...formData, trainer_id: e.target.value })}
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+                >
+                  <option value="">Select Trainer</option>
+                  {users.filter(u => u.role === 'trainer').map((user) => (
+                    <option key={user.id} value={user.id}>{user.first_name} {user.last_name}</option>
+                  ))}
+                </select>
+              </div>
+
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-700">Assign Sales Person</label>
                 <select 

@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CalendarClock, Download, Filter, Plus, Search, Loader2 } from 'lucide-react';
+import { CalendarClock, Download, Filter, Plus, Search, Loader2, ChevronDown, FileText, FileSpreadsheet } from 'lucide-react';
 import { getEquipment, getJobs } from '../../services/supabaseService';
 import type { Equipment, Job } from '../../services/supabaseService';
+import { exportToCSV, exportToExcel, exportToPDF } from '../../utils/export';
 
 const statusStyles: Record<string, string> = {
   'Upcoming': 'bg-blue-100 text-blue-700',
@@ -51,6 +52,8 @@ const RenewalsPage: React.FC = () => {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | RenewalRow['status']>('All');
+  const [showExportDropdown, setShowExportDropdown] = useState(false);
+  const exportDropdownRef = useRef<HTMLDivElement>(null);
 
   const fetchData = async () => {
     try {
@@ -67,6 +70,18 @@ const RenewalsPage: React.FC = () => {
 
   useEffect(() => {
     fetchData();
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (exportDropdownRef.current && !exportDropdownRef.current.contains(event.target as Node)) {
+        setShowExportDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
 
   const renewals: RenewalRow[] = useMemo(() => {
@@ -137,29 +152,35 @@ const RenewalsPage: React.FC = () => {
     };
   }, [renewals]);
 
-  const handleExport = () => {
-    if (filteredRenewals.length === 0) return;
+  const getExportData = () => {
+    return filteredRenewals.map((r) => ({
+      'Renewal ID': r.id,
+      'Asset ID': r.assetId,
+      'Asset Name': r.assetName,
+      'Client': r.client,
+      'Branch': r.branch,
+      'Expiry Date': formatDateOnly(r.expiryDate),
+      'Status': r.status,
+      'Days Remaining': r.daysRemaining === null ? 'N/A' : String(r.daysRemaining)
+    }));
+  };
 
-    const headers = ['renewal_id', 'asset_id', 'asset_name', 'client', 'branch', 'expiry_date', 'status', 'days_remaining'];
-    const rows = filteredRenewals.map((r) => [
-      r.id,
-      r.assetId,
-      r.assetName,
-      r.client,
-      r.branch,
-      r.expiryDate ?? '',
-      r.status,
-      r.daysRemaining === null ? '' : String(r.daysRemaining),
-    ]);
+  const handleExportCSV = () => {
+    const data = getExportData();
+    if (data.length === 0) return;
+    exportToCSV({ data, fileName: 'renewals' });
+  };
 
-    const csvContent = [headers.join(','), ...rows.map((row) => row.map((v) => JSON.stringify(v)).join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.setAttribute('download', `renewals_export_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleExportExcel = () => {
+    const data = getExportData();
+    if (data.length === 0) return;
+    exportToExcel({ data, fileName: 'renewals', sheetName: 'Renewals' });
+  };
+
+  const handleExportPDF = () => {
+    const data = getExportData();
+    if (data.length === 0) return;
+    exportToPDF({ data, fileName: 'renewals', title: 'Renewals Report' });
   };
 
   if (loading) {
@@ -178,14 +199,53 @@ const RenewalsPage: React.FC = () => {
           <p className="text-slate-500 mt-1">Track expiring certificates and schedule renewal inspections.</p>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={handleExport}
-            className="flex items-center space-x-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-          >
-            <Download className="h-4 w-4" />
-            <span>Export</span>
-          </button>
+          <div className="relative" ref={exportDropdownRef}>
+            <button 
+              onClick={() => setShowExportDropdown(!showExportDropdown)}
+              className="flex items-center space-x-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              <Download className="h-4 w-4" />
+              <span>Export</span>
+              <ChevronDown className="h-4 w-4" />
+            </button>
+            
+            {showExportDropdown && (
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-50">
+                <button 
+                  onClick={() => {
+                    handleExportCSV();
+                    setShowExportDropdown(false);
+                  }}
+                  className="flex items-center space-x-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 w-full text-left"
+                >
+                  <FileText className="h-4 w-4 text-blue-600" />
+                  <span>Export to CSV</span>
+                </button>
+                
+                <button 
+                  onClick={() => {
+                    handleExportExcel();
+                    setShowExportDropdown(false);
+                  }}
+                  className="flex items-center space-x-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 w-full text-left"
+                >
+                  <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+                  <span>Export to Excel</span>
+                </button>
+                
+                <button 
+                  onClick={() => {
+                    handleExportPDF();
+                    setShowExportDropdown(false);
+                  }}
+                  className="flex items-center space-x-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 w-full text-left"
+                >
+                  <FileText className="h-4 w-4 text-purple-600" />
+                  <span>Export to PDF</span>
+                </button>
+              </div>
+            )}
+          </div>
           <button
             type="button"
             onClick={() => navigate('/admin/renewals/schedule')}
@@ -251,6 +311,7 @@ const RenewalsPage: React.FC = () => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50">
+                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">S.No</th>
                 <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Renewal ID</th>
                 <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Asset</th>
                 <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Client</th>
@@ -261,8 +322,9 @@ const RenewalsPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredRenewals.map((r) => (
+              {filteredRenewals.map((r, index) => (
                 <tr key={r.id} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-6 py-4 text-sm font-semibold text-slate-600">{index + 1}</td>
                   <td className="px-6 py-4 text-sm font-bold text-primary-600">{r.id}</td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">

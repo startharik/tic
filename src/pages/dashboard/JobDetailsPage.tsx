@@ -192,6 +192,17 @@ const JobDetailsPage: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
+                  <div className="mt-1 p-2 bg-purple-50 rounded-lg">
+                    <UserIcon className="h-4 w-4 text-purple-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-slate-500 uppercase">Trainer</p>
+                    <p className="text-sm font-semibold text-slate-900">
+                      {job.trainer ? `${job.trainer.first_name || ''} ${job.trainer.last_name || ''}`.trim() || 'Unassigned' : 'Unassigned'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-3">
                   <div className="mt-1 p-2 bg-pink-50 rounded-lg">
                     <UserIcon className="h-4 w-4 text-pink-600" />
                   </div>
@@ -213,6 +224,17 @@ const JobDetailsPage: React.FC = () => {
                 </div>
               </div>
               <div className="space-y-4">
+                <div className="flex items-start space-x-3">
+                  <div className="mt-1 p-2 bg-cyan-50 rounded-lg">
+                    <FileText className="h-4 w-4 text-cyan-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-slate-500 uppercase">Job Type</p>
+                    <span className={`text-sm font-semibold inline-block px-2 py-1 rounded-full ${job.type === 'training' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                      {job.type === 'training' ? 'Training' : 'Inspection'}
+                    </span>
+                  </div>
+                </div>
                 <div className="flex items-start space-x-3">
                   <div className="mt-1 p-2 bg-rose-50 rounded-lg">
                     <MapPin className="h-4 w-4 text-rose-600" />

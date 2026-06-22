@@ -2,11 +2,43 @@ import { supabase } from '../lib/supabase';
 
 export type GeocodedPoint = { lat: number; lng: number };
 
+type CacheEntry<T> = {
+  data: T;
+  expiresAt: number;
+};
+
+const queryCache = new Map<string, CacheEntry<unknown>>();
+const DEFAULT_CACHE_TTL_MS = 30_000;
+const LIVE_CACHE_TTL_MS = 10_000;
+
+const getCachedValue = <T>(key: string): T | null => {
+  const entry = queryCache.get(key) as CacheEntry<T> | undefined;
+  if (!entry) return null;
+  if (entry.expiresAt < Date.now()) {
+    queryCache.delete(key);
+    return null;
+  }
+  return entry.data;
+};
+
+const setCachedValue = <T>(key: string, data: T, ttlMs = DEFAULT_CACHE_TTL_MS): T => {
+  queryCache.set(key, {
+    data,
+    expiresAt: Date.now() + ttlMs,
+  });
+  return data;
+};
+
+const invalidateCache = (...keys: string[]) => {
+  keys.forEach((key) => queryCache.delete(key));
+};
+
 // Types
 export interface User {
   id: string;
   first_name?: string;
   last_name?: string;
+  email?: string;
   phone?: string;
   role: UserRole;
   branch_id?: string;
@@ -79,12 +111,14 @@ export interface Job {
     branch_id?: string;
     equipment_id?: string;
     assigned_to?: string;
+    trainer_id?: string;
     sales_person_id?: string;
     created_by?: string;
     title: string;
     description?: string;
     status: string;
     priority: string;
+    type?: string; // inspection, training
     site_address?: string;
     site_latitude?: number;
     site_longitude?: number;
@@ -99,6 +133,26 @@ export interface Job {
     assigned_users?: { id: string; first_name: string; last_name: string };
     created_by_users?: { id: string; first_name: string; last_name: string };
     sales_person?: { id: string; first_name: string; last_name: string };
+    trainer?: { id: string; first_name: string; last_name: string };
+}
+
+export interface Training {
+  id: string;
+  job_id: string;
+  equipment_id: string;
+  trainer_id?: string;
+  status: string;
+  overall_result?: string;
+  notes?: string;
+  submitted_at?: string;
+  approved_at?: string;
+  approved_by?: string;
+  rejection_reason?: string;
+  created_at: string;
+  updated_at: string;
+  jobs?: { id: string; title: string; sales_person_id?: string };
+  equipment?: { id: string; name: string };
+  trainer?: { id: string; first_name: string; last_name: string };
 }
 
 export interface Inspection {
@@ -146,12 +200,14 @@ export const deleteCountry = async (id: string): Promise<void> => {
 
 // ==================== BRANCHES ====================
 export const getBranches = async (): Promise<Branch[]> => {
+  const cached = getCachedValue<Branch[]>('branches');
+  if (cached) return cached;
   const { data, error } = await supabase.from('branches').select(`
     *,
     countries (id, name)
   `).order('name');
   if (error) throw error;
-  return data || [];
+  return setCachedValue('branches', data || []);
 };
 
 export const getBranch = async (id: string): Promise<Branch> => {
@@ -166,6 +222,7 @@ export const getBranch = async (id: string): Promise<Branch> => {
 export const deleteBranch = async (id: string): Promise<void> => {
   const { error } = await supabase.from('branches').delete().eq('id', id);
   if (error) throw error;
+  invalidateCache('branches');
 };
 
 export const createBranch = async (branch: Omit<Branch, 'id' | 'created_at' | 'updated_at'>): Promise<Branch> => {
@@ -174,6 +231,7 @@ export const createBranch = async (branch: Omit<Branch, 'id' | 'created_at' | 'u
     countries (id, name)
   `).single();
   if (error) throw error;
+  invalidateCache('branches');
   return data;
 };
 
@@ -183,17 +241,20 @@ export const updateBranch = async (id: string, branch: Partial<Omit<Branch, 'id'
     countries (id, name)
   `).single();
   if (error) throw error;
+  invalidateCache('branches');
   return data;
 };
 
 // ==================== USERS ====================
 export const getUsers = async (): Promise<User[]> => {
+  const cached = getCachedValue<User[]>('users');
+  if (cached) return cached;
   const { data, error } = await supabase.from('users').select(`
     *,
     branches (id, name)
   `).order('created_at', { ascending: false });
   if (error) throw error;
-  return data || [];
+  return setCachedValue('users', data || []);
 };
 
 export const getUser = async (id: string): Promise<User> => {
@@ -211,6 +272,7 @@ export const createUser = async (user: Omit<User, 'id' | 'created_at' | 'updated
     branches (id, name)
   `).single();
   if (error) throw error;
+  invalidateCache('users', 'dashboardStats');
   return data;
 };
 
@@ -220,17 +282,20 @@ export const updateUser = async (id: string, user: Partial<Omit<User, 'id' | 'cr
     branches (id, name)
   `).single();
   if (error) throw error;
+  invalidateCache('users', 'dashboardStats');
   return data;
 };
 
 // ==================== CLIENTS ====================
 export const getClients = async (): Promise<Client[]> => {
+  const cached = getCachedValue<Client[]>('clients');
+  if (cached) return cached;
   const { data, error } = await supabase.from('clients').select(`
     *,
     countries (id, name)
   `).order('name');
   if (error) throw error;
-  return data || [];
+  return setCachedValue('clients', data || []);
 };
 
 export const getClient = async (id: string): Promise<Client> => {
@@ -248,6 +313,7 @@ export const createClient = async (client: Omit<Client, 'id' | 'created_at' | 'u
     countries (id, name)
   `).single();
   if (error) throw error;
+  invalidateCache('clients', 'dashboardStats');
   return data;
 };
 
@@ -257,12 +323,14 @@ export const updateClient = async (id: string, client: Partial<Omit<Client, 'id'
     countries (id, name)
   `).single();
   if (error) throw error;
+  invalidateCache('clients', 'dashboardStats');
   return data;
 };
 
 export const deleteClient = async (id: string): Promise<void> => {
   const { error } = await supabase.from('clients').delete().eq('id', id);
   if (error) throw error;
+  invalidateCache('clients', 'dashboardStats');
 };
 
 export const geocodeAddressNominatim = async (
@@ -288,6 +356,8 @@ export const geocodeAddressNominatim = async (
 
 // ==================== JOBS ====================
 export const getJobs = async (): Promise<Job[]> => {
+  const cached = getCachedValue<Job[]>('jobs');
+  if (cached) return cached;
   const { data, error } = await supabase.from('jobs').select(`
     *,
     clients (id, name),
@@ -295,10 +365,11 @@ export const getJobs = async (): Promise<Job[]> => {
     equipment (id, name),
     assigned_users:users!jobs_assigned_to_fkey(id, first_name, last_name),
     created_by_users:users!jobs_created_by_fkey(id, first_name, last_name),
-    sales_person:users!jobs_sales_person_id_fkey(id, first_name, last_name)
+    sales_person:users!jobs_sales_person_id_fkey(id, first_name, last_name),
+    trainer:users!jobs_trainer_id_fkey(id, first_name, last_name)
   `).order('created_at', { ascending: false });
   if (error) throw error;
-  return data || [];
+  return setCachedValue('jobs', data || []);
 };
 
 export const getJob = async (id: string): Promise<Job> => {
@@ -309,7 +380,8 @@ export const getJob = async (id: string): Promise<Job> => {
     equipment (id, name),
     assigned_users:users!jobs_assigned_to_fkey(id, first_name, last_name),
     created_by_users:users!jobs_created_by_fkey(id, first_name, last_name),
-    sales_person:users!jobs_sales_person_id_fkey(id, first_name, last_name)
+    sales_person:users!jobs_sales_person_id_fkey(id, first_name, last_name),
+    trainer:users!jobs_trainer_id_fkey(id, first_name, last_name)
   `).eq('id', id).single();
   if (error) throw error;
   return data;
@@ -323,9 +395,11 @@ export const createJob = async (job: Omit<Job, 'id' | 'created_at' | 'updated_at
     equipment (id, name),
     assigned_users:users!jobs_assigned_to_fkey(id, first_name, last_name),
     created_by_users:users!jobs_created_by_fkey(id, first_name, last_name),
-    sales_person:users!jobs_sales_person_id_fkey(id, first_name, last_name)
+    sales_person:users!jobs_sales_person_id_fkey(id, first_name, last_name),
+    trainer:users!jobs_trainer_id_fkey(id, first_name, last_name)
   `).single();
   if (error) throw error;
+  invalidateCache('jobs', 'dashboardStats');
   return data;
 };
 
@@ -337,20 +411,24 @@ export const updateJob = async (id: string, job: Partial<Omit<Job, 'id' | 'creat
     equipment (id, name),
     assigned_users:users!jobs_assigned_to_fkey(id, first_name, last_name),
     created_by_users:users!jobs_created_by_fkey(id, first_name, last_name),
-    sales_person:users!jobs_sales_person_id_fkey(id, first_name, last_name)
+    sales_person:users!jobs_sales_person_id_fkey(id, first_name, last_name),
+    trainer:users!jobs_trainer_id_fkey(id, first_name, last_name)
   `).single();
   if (error) throw error;
+  invalidateCache('jobs', 'dashboardStats');
   return data;
 };
 
 export const deleteJob = async (id: string): Promise<void> => {
   const { error } = await supabase.from('jobs').delete().eq('id', id);
   if (error) throw error;
+  invalidateCache('jobs', 'dashboardStats');
 };
 
 export const deleteUser = async (id: string): Promise<void> => {
   const { error } = await supabase.from('users').delete().eq('id', id);
   if (error) throw error;
+  invalidateCache('users', 'dashboardStats');
 };
 
 export const adminSetUserPassword = async (userId: string, password: string): Promise<void> => {
@@ -365,13 +443,15 @@ export const adminSetUserPassword = async (userId: string, password: string): Pr
 
 // ==================== EQUIPMENT ====================
 export const getEquipment = async (): Promise<Equipment[]> => {
+  const cached = getCachedValue<Equipment[]>('equipment');
+  if (cached) return cached;
   const { data, error } = await supabase.from('equipment').select(`
     *,
     clients (id, name),
     branches (id, name)
   `).order('name');
   if (error) throw error;
-  return data || [];
+  return setCachedValue('equipment', data || []);
 };
 
 export const getEquipmentById = async (id: string): Promise<Equipment> => {
@@ -391,6 +471,7 @@ export const createEquipment = async (equipment: Omit<Equipment, 'id' | 'created
     branches (id, name)
   `).single();
   if (error) throw error;
+  invalidateCache('equipment', 'dashboardStats');
   return data;
 };
 
@@ -401,12 +482,14 @@ export const updateEquipment = async (id: string, equipment: Partial<Omit<Equipm
     branches (id, name)
   `).single();
   if (error) throw error;
+  invalidateCache('equipment', 'dashboardStats');
   return data;
 };
 
 export const deleteEquipment = async (id: string): Promise<void> => {
   const { error } = await supabase.from('equipment').delete().eq('id', id);
   if (error) throw error;
+  invalidateCache('equipment', 'dashboardStats');
 };
 
 // ==================== INSPECTIONS ====================
@@ -455,8 +538,55 @@ export const updateInspection = async (id: string, updates: Partial<Inspection>)
   return data;
 };
 
+export const getTrainings = async (): Promise<Training[]> => {
+  const { data, error } = await supabase
+    .from('trainings')
+    .select(`
+      *,
+      jobs (id, title),
+      equipment (id, name),
+      trainer:users!trainings_trainer_id_fkey (id, first_name, last_name)
+    `)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+};
+
+export const getTrainingById = async (id: string): Promise<Training> => {
+  const { data, error } = await supabase
+    .from('trainings')
+    .select(`
+      *,
+      jobs (id, title, sales_person_id),
+      equipment (id, name),
+      trainer:users!trainings_trainer_id_fkey (id, first_name, last_name)
+    `)
+    .eq('id', id)
+    .single();
+  if (error) throw error;
+  return data;
+};
+
+export const updateTraining = async (id: string, updates: Partial<Training>): Promise<Training> => {
+  const { data, error } = await supabase
+    .from('trainings')
+    .update(updates)
+    .eq('id', id)
+    .select(`
+      *,
+      jobs (id, title),
+      equipment (id, name),
+      trainer:users!trainings_trainer_id_fkey (id, first_name, last_name)
+    `)
+    .single();
+  if (error) throw error;
+  return data;
+};
+
 // Dashboard KPIs
 export const getDashboardStats = async () => {
+  const cached = getCachedValue<any>('dashboardStats');
+  if (cached) return cached;
   const [
     jobsResult, usersResult, clientsResult, equipmentResult, inspectionsResult] = await Promise.all([
     supabase.from('jobs').select('*'),
@@ -482,7 +612,7 @@ export const getDashboardStats = async () => {
     inspectionStatusCounts[inspection.status] = (inspectionStatusCounts[inspection.status] || 0) + 1;
   });
 
-  return {
+  return setCachedValue('dashboardStats', {
     totalJobs: jobs.length,
     openJobs: statusCounts['open'] || 0,
     inProgress: statusCounts['in_progress'] || 0,
@@ -501,7 +631,7 @@ export const getDashboardStats = async () => {
     submittedInspections: inspectionStatusCounts['submitted'] || 0,
     approvedInspections: inspectionStatusCounts['approved'] || 0,
     rejectedInspections: inspectionStatusCounts['rejected'] || 0,
-  };
+  });
 };
 
 export const getCurrentUserProfile = async (userId: string): Promise<User | null> => {
@@ -515,13 +645,16 @@ export const getCurrentUserProfile = async (userId: string): Promise<User | null
 };
 
 // Role definitions and permissions
-export type UserRole = 'super_admin' | 'admin' | 'engineer' | 'sales';
+export type UserRole = 'super_admin' | 'admin' | 'engineer' | 'trainer' | 'sales' | 'coordinator' | 'operation_manager';
 
 export const ROLE_PERMISSIONS = {
   super_admin: ['*'], // All permissions
   admin: ['*'], // Almost all permissions (except maybe some super_admin only)
   engineer: ['read:jobs', 'read:equipment', 'write:inspections'],
+  trainer: ['read:jobs', 'read:equipment', 'write:trainings'],
   sales: ['read:clients', 'read:jobs'],
+  coordinator: ['read:jobs', 'write:jobs', 'read:equipment', 'read:documents', 'read:media'],
+  operation_manager: ['read:jobs', 'read:inspections', 'write:inspections', 'read:trainings', 'write:trainings', 'read:media', 'read:documents', 'read:equipment'],
 };
 
 export interface AuditLog {
@@ -565,6 +698,8 @@ export interface LocationTracking {
 }
 
 export const getLocationTracking = async (): Promise<LocationTracking[]> => {
+  const cached = getCachedValue<LocationTracking[]>('locationTracking');
+  if (cached) return cached;
   const { data, error } = await supabase
     .from('location_tracking')
     .select(`
@@ -576,7 +711,7 @@ export const getLocationTracking = async (): Promise<LocationTracking[]> => {
     .limit(500);
   
   if (error) throw error;
-  return data || [];
+  return setCachedValue('locationTracking', data || [], LIVE_CACHE_TTL_MS);
 };
 
 export interface AppSettings {

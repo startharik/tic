@@ -310,9 +310,11 @@ const JobsPage: React.FC = () => {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50">
+                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">S.No</th>
                     <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Job ID</th>
                     <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Client & Type</th>
                     <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Engineer</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Trainer</th>
                     <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Sales Person</th>
                     <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Scheduled Date</th>
                     <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Priority</th>
@@ -321,8 +323,9 @@ const JobsPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredJobs.map((job) => {
+                  {filteredJobs.map((job, index) => {
                     const assignedEngineer = getUserName(job.assigned_to);
+                    const assignedTrainer = job.trainer ? `${job.trainer.first_name || ''} ${job.trainer.last_name || ''}`.trim() || 'Unassigned' : 'Unassigned';
                     const assignedSalesPerson = getUserName(job.sales_person_id);
                     const clientName = getClientName(job.client_id);
                     return (
@@ -331,6 +334,7 @@ const JobsPage: React.FC = () => {
                         className="hover:bg-slate-50 transition-colors group cursor-pointer"
                         onClick={() => navigate(`/admin/jobs/${encodeURIComponent(job.id)}`)}
                       >
+                        <td className="px-6 py-4 text-sm font-semibold text-slate-600">{index + 1}</td>
                         <td className="px-6 py-4">
                           <button
                             type="button"
@@ -347,6 +351,9 @@ const JobsPage: React.FC = () => {
                           <div className="flex flex-col">
                             <span className="text-sm font-semibold text-slate-900">{clientName}</span>
                             <span className="text-xs text-slate-500">{job.title}</span>
+                            <span className={`text-xs mt-1 inline-block px-2 py-0.5 rounded-full ${job.type === 'training' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                              {job.type === 'training' ? 'Training' : 'Inspection'}
+                            </span>
                           </div>
                         </td>
                         <td className="px-6 py-4">
@@ -356,6 +363,16 @@ const JobsPage: React.FC = () => {
                             </div>
                             <span className={`text-sm ${assignedEngineer === 'Unassigned' ? 'text-slate-400 italic' : 'text-slate-600'}`}>
                               {assignedEngineer}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center space-x-2">
+                            <div className="h-7 w-7 rounded-full bg-purple-100 flex items-center justify-center text-[10px] font-bold text-purple-600">
+                              {assignedTrainer === 'Unassigned' ? '?' : assignedTrainer.split(' ').map(n => n[0]).join('')}
+                            </div>
+                            <span className={`text-sm ${assignedTrainer === 'Unassigned' ? 'text-slate-400 italic' : 'text-slate-600'}`}>
+                              {assignedTrainer}
                             </span>
                           </div>
                         </td>

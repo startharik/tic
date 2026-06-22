@@ -167,6 +167,7 @@ const AssetDetailsPage: React.FC = () => {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-slate-50/50">
+                  <th className="px-6 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">S.No</th>
                   <th className="px-6 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Date</th>
                   <th className="px-6 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Job ID</th>
                   <th className="px-6 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Result</th>
@@ -175,8 +176,9 @@ const AssetDetailsPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {asset.history.map((log) => (
+                {asset.history.map((log, index) => (
                   <tr key={log.id} className="hover:bg-slate-50/50 transition-colors group">
+                    <td className="px-6 py-4 text-sm font-semibold text-slate-600">{index + 1}</td>
                     <td className="px-6 py-4 text-xs font-bold text-slate-700">{log.date}</td>
                     <td className="px-6 py-4 text-xs font-bold text-primary-600 hover:underline cursor-pointer">{log.id}</td>
                     <td className="px-6 py-4">

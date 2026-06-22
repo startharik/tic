@@ -176,15 +176,25 @@ const MediaManagementPage: React.FC = () => {
           <div key={item.id} className="group relative bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden hover:shadow-md transition-all">
             <div className="aspect-[4/3] relative overflow-hidden bg-slate-100">
               {item.file_type === 'image' ? (
-                <img
-                  src={item.file_url}
-                  alt={item.file_name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                />
+                <button
+                  type="button"
+                  onClick={() => window.open(item.file_url, '_blank', 'noopener,noreferrer')}
+                  className="w-full h-full block cursor-pointer"
+                >
+                  <img
+                    src={item.file_url}
+                    alt={item.file_name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                </button>
               ) : item.file_type === 'video' ? (
-                <div className="w-full h-full bg-black flex items-center justify-center">
+                <button
+                  type="button"
+                  onClick={() => window.open(item.file_url, '_blank', 'noopener,noreferrer')}
+                  className="w-full h-full bg-black flex items-center justify-center cursor-pointer"
+                >
                   <Video className="h-12 w-12 text-white/70" />
-                </div>
+                </button>
               ) : (
                 <div className="w-full h-full bg-slate-200" />
               )}

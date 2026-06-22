@@ -21,8 +21,11 @@ const RoleBadge = ({ role }: { role: string }) => {
   const styles: any = {
     'super_admin': 'bg-purple-100 text-purple-700',
     'admin': 'bg-blue-100 text-blue-700',
+    'coordinator': 'bg-amber-100 text-amber-700',
     'engineer': 'bg-indigo-100 text-indigo-700',
+    'trainer': 'bg-cyan-100 text-cyan-700',
     'sales': 'bg-green-100 text-green-700',
+    'operation_manager': 'bg-rose-100 text-rose-700',
   };
   return (
     <span className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider ${styles[role] || 'bg-slate-100 text-slate-700'}`}>
@@ -37,6 +40,11 @@ const UsersPage: React.FC = () => {
   const [branches, setBranches] = useState<Branch[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedBranch, setSelectedBranch] = useState('');
+  const [selectedRole, setSelectedRole] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -65,6 +73,19 @@ const UsersPage: React.FC = () => {
     }
     return 'Unknown User';
   };
+
+  const filteredUsers = users.filter(user => {
+    const matchesSearch = searchQuery.toLowerCase().trim() === '' || 
+      getUserName(user).toLowerCase().includes(searchQuery.toLowerCase()) || 
+      (user.email && user.email.toLowerCase().includes(searchQuery.toLowerCase())) || 
+      user.role.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesBranch = selectedBranch === '' || user.branch_id === selectedBranch;
+    const matchesRole = selectedRole === '' || user.role === selectedRole;
+    const matchesStatus = selectedStatus === '' || (selectedStatus === 'active' && user.is_active) || (selectedStatus === 'inactive' && !user.is_active);
+
+    return matchesSearch && matchesBranch && matchesRole && matchesStatus;
+  });
 
   if (loading) {
     return (
@@ -140,28 +161,72 @@ const UsersPage: React.FC = () => {
             <input
               type="text"
               placeholder="Search by name, email, or role..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 bg-slate-50 border-transparent rounded-lg text-sm focus:bg-white focus:ring-2 focus:ring-primary-500 transition-all"
             />
           </div>
           <div className="flex items-center space-x-2">
-            <button className="flex items-center space-x-2 px-3 py-2 bg-slate-50 text-slate-600 rounded-lg text-sm hover:bg-slate-100 transition-colors">
+            <button 
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex items-center space-x-2 px-3 py-2 bg-slate-50 text-slate-600 rounded-lg text-sm hover:bg-slate-100 transition-colors"
+            >
               <Filter className="h-4 w-4" />
               <span>Filter</span>
             </button>
-            <select className="bg-slate-50 border-transparent rounded-lg text-sm px-4 py-2 focus:ring-2 focus:ring-primary-500 outline-none">
-              <option>All Branches</option>
+            <select 
+              value={selectedBranch}
+              onChange={(e) => setSelectedBranch(e.target.value)}
+              className="bg-slate-50 border-transparent rounded-lg text-sm px-4 py-2 focus:ring-2 focus:ring-primary-500 outline-none"
+            >
+              <option value="">All Branches</option>
               {branches.map(branch => (
                 <option key={branch.id} value={branch.id}>{branch.name}</option>
               ))}
             </select>
           </div>
         </div>
+        {showFilters && (
+          <div className="p-4 border-b border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 block">Role</label>
+              <select 
+                value={selectedRole}
+                onChange={(e) => setSelectedRole(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg text-sm px-4 py-2 focus:ring-2 focus:ring-primary-500 outline-none"
+              >
+                <option value="">All Roles</option>
+                <option value="super_admin">Super Admin</option>
+                <option value="admin">Admin</option>
+                <option value="coordinator">Coordinator</option>
+                <option value="operation_manager">Operation Manager</option>
+                <option value="engineer">Engineer</option>
+                <option value="trainer">Trainer</option>
+                <option value="sales">Sales</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 block">Status</label>
+              <select 
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg text-sm px-4 py-2 focus:ring-2 focus:ring-primary-500 outline-none"
+              >
+                <option value="">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+          </div>
+        )}
 
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
                   <tr className="bg-slate-50">
+                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">S.No</th>
                     <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">User</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Email</th>
                     <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Role & Branch</th>
                     <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Contact</th>
                     <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
@@ -169,15 +234,18 @@ const UsersPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {users.length === 0 ? (
+                  {filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                      <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
                         No users found.
                       </td>
                     </tr>
                   ) : (
-                    users.map((user) => (
+                    filteredUsers.map((user, index) => (
                       <tr key={user.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-6 py-4 text-sm font-semibold text-slate-600">
+                          {index + 1}
+                        </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center space-x-3">
                             <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold border-2 border-white shadow-sm">
@@ -188,6 +256,9 @@ const UsersPage: React.FC = () => {
                               <span className="text-xs text-slate-500">ID: {user.id.slice(0, 8)}</span>
                             </div>
                           </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-sm text-slate-600">{user.email || '—'}</span>
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex flex-col space-y-1">

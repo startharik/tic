@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  ClipboardList, 
-  Search, 
-  Filter, 
-  FileText, 
-  CheckCircle, 
+import {
+  GraduationCap,
+  Search,
+  Filter,
+  FileText,
+  CheckCircle,
   Layout,
   Loader2,
   Eye,
@@ -13,34 +13,26 @@ import {
   ThumbsDown,
   XCircle,
   Send,
-  Download,
-  ChevronDown,
-  FileSpreadsheet
 } from 'lucide-react';
-import { getInspections, updateInspection, type Inspection } from '../../services/supabaseService';
+import { getTrainings, updateTraining, type Training } from '../../services/supabaseService';
 import { useAuth } from '../../contexts/AuthContext';
-import { exportToCSV, exportToExcel, exportToPDF } from '../../utils/export';
 
-const InspectionManagementPage: React.FC = () => {
+const TrainingManagementPage: React.FC = () => {
   const navigate = useNavigate();
   const { userProfile, hasPermission } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [inspections, setInspections] = useState<Inspection[]>([]);
-  const [selectedInspection, setSelectedInspection] = useState<Inspection | null>(null);
+  const [trainings, setTrainings] = useState<Training[]>([]);
+  const [selectedTraining, setSelectedTraining] = useState<Training | null>(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
-  const [showExportDropdown, setShowExportDropdown] = useState(false);
-  const exportDropdownRef = useRef<HTMLDivElement>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('All Status');
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const data = await getInspections();
-        setInspections(data);
+        const data = await getTrainings();
+        setTrainings(data);
       } catch (error) {
-        console.error('Error fetching inspections:', error);
+        console.error('Error fetching trainings:', error);
       } finally {
         setLoading(false);
       }
@@ -48,91 +40,45 @@ const InspectionManagementPage: React.FC = () => {
     fetchData();
   }, []);
 
-  const handleApprove = async (inspectionId: string) => {
-    setSelectedInspection(inspections.find(i => i.id === inspectionId) || null);
-    if (!userProfile?.id || !selectedInspection) return;
-    
+  const handleApprove = async (trainingId: string) => {
+    const training = trainings.find((t) => t.id === trainingId);
+    if (!userProfile?.id || !training) return;
+
     try {
-      await updateInspection(inspectionId, {
+      await updateTraining(trainingId, {
         status: 'approved',
         approved_at: new Date().toISOString(),
-        approved_by: userProfile.id
+        approved_by: userProfile.id,
       });
-      // Refresh the list
-      const data = await getInspections();
-      setInspections(data);
+      const data = await getTrainings();
+      setTrainings(data);
     } catch (error) {
-      console.error('Error approving inspection:', error);
+      console.error('Error approving training:', error);
     }
   };
 
   const handleReject = async () => {
-    if (!selectedInspection || !userProfile?.id) return;
+    if (!selectedTraining || !userProfile?.id) return;
     try {
-      await updateInspection(selectedInspection.id, {
+      await updateTraining(selectedTraining.id, {
         status: 'rejected',
-        rejection_reason: rejectionReason
+        rejection_reason: rejectionReason,
       });
       setShowRejectModal(false);
       setRejectionReason('');
-      // Refresh the list
-      const data = await getInspections();
-      setInspections(data);
+      const data = await getTrainings();
+      setTrainings(data);
     } catch (error) {
-      console.error('Error rejecting inspection:', error);
+      console.error('Error rejecting training:', error);
     }
   };
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (exportDropdownRef.current && !exportDropdownRef.current.contains(event.target as Node)) {
-        setShowExportDropdown(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
-
-  const filteredInspections = inspections.filter(inspection => {
-    const matchesSearch = searchQuery === '' || 
-      (inspection.jobs?.title?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-       inspection.equipment?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-       (inspection.inspector && `${inspection.inspector.first_name || ''} ${inspection.inspector.last_name || ''}`.toLowerCase().includes(searchQuery.toLowerCase())));
-      
-    const matchesStatus = statusFilter === 'All Status' || inspection.status === statusFilter.toLowerCase();
-    return matchesSearch && matchesStatus;
-  });
-
-  const getExportData = () => {
-    return filteredInspections.map(inspection => ({
-      'Job Title': inspection.jobs?.title || 'N/A',
-      'Equipment': inspection.equipment?.name || 'N/A',
-      'Inspector': inspection.inspector ? `${inspection.inspector.first_name || ''} ${inspection.inspector.last_name || ''}`.trim() : 'Unassigned',
-      'Overall Result': inspection.overall_result || 'N/A',
-      'Status': inspection.status.toUpperCase(),
-      'Created At': new Date(inspection.created_at).toLocaleDateString(),
-      'Notes': inspection.notes || 'N/A'
-    }));
-  };
-
-  const handleExportCSV = () => {
-    const data = getExportData();
-    if (data.length === 0) return;
-    exportToCSV({ data, fileName: 'inspections' });
-  };
-
-  const handleExportExcel = () => {
-    const data = getExportData();
-    if (data.length === 0) return;
-    exportToExcel({ data, fileName: 'inspections', sheetName: 'Inspections' });
-  };
-
-  const handleExportPDF = () => {
-    const data = getExportData();
-    if (data.length === 0) return;
-    exportToPDF({ data, fileName: 'inspections', title: 'Inspections Report' });
+  const stats = {
+    total: trainings.length,
+    draft: trainings.filter((t) => t.status === 'draft').length,
+    submitted: trainings.filter((t) => t.status === 'submitted').length,
+    approved: trainings.filter((t) => t.status === 'approved').length,
+    rejected: trainings.filter((t) => t.status === 'rejected').length,
   };
 
   if (loading) {
@@ -147,66 +93,18 @@ const InspectionManagementPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Inspection Management</h1>
-          <p className="text-slate-500 mt-1">Review and manage inspection reports.</p>
-        </div>
-        <div className="relative" ref={exportDropdownRef}>
-          <button 
-            onClick={() => setShowExportDropdown(!showExportDropdown)}
-            className="flex items-center space-x-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-          >
-            <Download className="h-4 w-4" />
-            <span>Export</span>
-            <ChevronDown className="h-4 w-4" />
-          </button>
-          
-          {showExportDropdown && (
-            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-50">
-              <button 
-                onClick={() => {
-                  handleExportCSV();
-                  setShowExportDropdown(false);
-                }}
-                className="flex items-center space-x-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 w-full text-left"
-              >
-                <FileText className="h-4 w-4 text-blue-600" />
-                <span>Export to CSV</span>
-              </button>
-              
-              <button 
-                onClick={() => {
-                  handleExportExcel();
-                  setShowExportDropdown(false);
-                }}
-                className="flex items-center space-x-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 w-full text-left"
-              >
-                <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
-                <span>Export to Excel</span>
-              </button>
-              
-              <button 
-                onClick={() => {
-                  handleExportPDF();
-                  setShowExportDropdown(false);
-                }}
-                className="flex items-center space-x-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 w-full text-left"
-              >
-                <FileText className="h-4 w-4 text-purple-600" />
-                <span>Export to PDF</span>
-              </button>
-            </div>
-          )}
+          <h1 className="text-2xl font-bold text-slate-900">Training Management</h1>
+          <p className="text-slate-500 mt-1">Review and manage training reports.</p>
         </div>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         {[
-          { label: 'Total Inspections', value: filteredInspections.length, icon: <ClipboardList className="h-5 w-5 text-blue-600" />, bg: 'bg-blue-50' },
-          { label: 'Drafts', value: filteredInspections.filter(i => i.status === 'draft').length, icon: <FileText className="h-5 w-5 text-slate-600" />, bg: 'bg-slate-50' },
-          { label: 'Submitted', value: filteredInspections.filter(i => i.status === 'submitted').length, icon: <Send className="h-5 w-5 text-amber-600" />, bg: 'bg-amber-50' },
-          { label: 'Approved', value: filteredInspections.filter(i => i.status === 'approved').length, icon: <CheckCircle className="h-5 w-5 text-emerald-600" />, bg: 'bg-emerald-50' },
-          { label: 'Rejected', value: filteredInspections.filter(i => i.status === 'rejected').length, icon: <XCircle className="h-5 w-5 text-rose-600" />, bg: 'bg-rose-50' },
+          { label: 'Total Trainings', value: stats.total, icon: <GraduationCap className="h-5 w-5 text-violet-600" />, bg: 'bg-violet-50' },
+          { label: 'Drafts', value: stats.draft, icon: <FileText className="h-5 w-5 text-slate-600" />, bg: 'bg-slate-50' },
+          { label: 'Submitted', value: stats.submitted, icon: <Send className="h-5 w-5 text-amber-600" />, bg: 'bg-amber-50' },
+          { label: 'Approved', value: stats.approved, icon: <CheckCircle className="h-5 w-5 text-emerald-600" />, bg: 'bg-emerald-50' },
+          { label: 'Rejected', value: stats.rejected, icon: <XCircle className="h-5 w-5 text-rose-600" />, bg: 'bg-rose-50' },
         ].map((stat, idx) => (
           <div key={idx} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
             <div className="flex items-center justify-between mb-3">
@@ -218,24 +116,17 @@ const InspectionManagementPage: React.FC = () => {
         ))}
       </div>
 
-      {/* Filters */}
       <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-4">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
           <input
             type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search inspections..."
+            placeholder="Search trainings..."
             className="w-full pl-10 pr-4 py-2 bg-slate-50 border-transparent rounded-lg text-sm focus:bg-white focus:ring-2 focus:ring-primary-500 transition-all"
           />
         </div>
         <div className="flex items-center space-x-3">
-          <select 
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-slate-50 border-transparent rounded-lg text-sm px-4 py-2 focus:ring-2 focus:ring-primary-500 outline-none"
-          >
+          <select className="bg-slate-50 border-transparent rounded-lg text-sm px-4 py-2 focus:ring-2 focus:ring-primary-500 outline-none">
             <option>All Status</option>
             <option>Draft</option>
             <option>Submitted</option>
@@ -249,14 +140,13 @@ const InspectionManagementPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Inspections Table */}
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-slate-50">
               <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">S.No</th>
               <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Job / Equipment</th>
-              <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Inspector</th>
+              <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Trainer</th>
               <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Overall Result</th>
               <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
               <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Created At</th>
@@ -264,7 +154,7 @@ const InspectionManagementPage: React.FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {filteredInspections.map((item, index) => (
+            {trainings.map((item, index) => (
               <tr key={item.id} className="hover:bg-slate-50 transition-colors group">
                 <td className="px-6 py-4 text-sm font-semibold text-slate-600">{index + 1}</td>
                 <td className="px-6 py-4">
@@ -277,7 +167,7 @@ const InspectionManagementPage: React.FC = () => {
                   </div>
                 </td>
                 <td className="px-6 py-4 text-sm text-slate-600">
-                  {item.inspector ? `${item.inspector.first_name || ''} ${item.inspector.last_name || ''}`.trim() || 'Unassigned' : 'Unassigned'}
+                  {item.trainer ? `${item.trainer.first_name || ''} ${item.trainer.last_name || ''}`.trim() || 'Unassigned' : 'Unassigned'}
                 </td>
                 <td className="px-6 py-4 text-sm text-slate-600">
                   {item.overall_result ? (
@@ -304,7 +194,7 @@ const InspectionManagementPage: React.FC = () => {
                 <td className="px-6 py-4">
                   <div className="flex items-center space-x-2">
                     <button
-                      onClick={() => navigate(`/admin/inspections/${item.id}/review`)}
+                      onClick={() => navigate(`/admin/trainings/${item.id}/review`)}
                       className="p-2 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg"
                     >
                       <Eye className="h-4 w-4" />
@@ -319,7 +209,7 @@ const InspectionManagementPage: React.FC = () => {
                         </button>
                         <button
                           onClick={() => {
-                            setSelectedInspection(item);
+                            setSelectedTraining(item);
                             setShowRejectModal(true);
                           }}
                           className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg"
@@ -336,12 +226,11 @@ const InspectionManagementPage: React.FC = () => {
         </table>
       </div>
 
-      {/* Reject Modal */}
       {showRejectModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={() => setShowRejectModal(false)}></div>
           <div className="bg-white rounded-2xl p-6 w-full max-w-md z-10 mx-4 shadow-2xl">
-            <h3 className="text-lg font-bold text-slate-900 mb-4">Reject Inspection</h3>
+            <h3 className="text-lg font-bold text-slate-900 mb-4">Reject Training</h3>
             <div className="mb-4">
               <label className="block text-sm font-medium text-slate-700 mb-2">Reason for Rejection</label>
               <textarea
@@ -363,7 +252,7 @@ const InspectionManagementPage: React.FC = () => {
                 onClick={handleReject}
                 className="px-4 py-2 bg-rose-600 text-white font-medium rounded-lg hover:bg-rose-700"
               >
-                Reject Inspection
+                Reject Training
               </button>
             </div>
           </div>
@@ -373,4 +262,4 @@ const InspectionManagementPage: React.FC = () => {
   );
 };
 
-export default InspectionManagementPage;
+export default TrainingManagementPage;

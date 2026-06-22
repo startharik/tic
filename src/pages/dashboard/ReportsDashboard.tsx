@@ -12,6 +12,7 @@ import {
   Clock,
   ShieldCheck,
   ClipboardList,
+  MoreVertical
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -38,6 +39,7 @@ import {
   getUsers,
 } from '../../services/supabaseService';
 import type { AuditLog, Branch, ChatMessageLite, Document, Equipment, Inspection, Job, Media, User } from '../../services/supabaseService';
+import { exportToCSV, exportToExcel, exportToPDF } from '../../utils/export';
 
 type ReportType =
   | 'Inspection Approvals'
@@ -109,6 +111,7 @@ const ReportsDashboard: React.FC = () => {
   const [media, setMedia] = useState<Media[]>([]);
   const [messages, setMessages] = useState<ChatMessageLite[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   const [dateFrom, setDateFrom] = useState(() => formatIsoDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)));
   const [dateTo, setDateTo] = useState(() => formatIsoDate(new Date()));
@@ -424,8 +427,8 @@ const ReportsDashboard: React.FC = () => {
       .map((r) => ({ name: r.name, completed: r.jobs_completed, assigned: r.jobs_assigned, inspections: r.inspections_submitted }));
   }, [userReportRows]);
 
-  const handleExport = () => {
-    const dataToExport =
+  const getDataToExport = () => {
+    const data =
       reportType === 'Users Report' || reportType === 'Engineers Report'
         ? userReportRows
         : reportType === 'Jobs Report'
@@ -441,23 +444,25 @@ const ReportsDashboard: React.FC = () => {
                   : reportType === 'Audit Logs'
                     ? auditRows
             : [];
+    return data;
+  };
 
-    if (dataToExport.length === 0) return;
+  const handleExportCSV = () => {
+    const data = getDataToExport();
+    if (data.length === 0) return;
+    exportToCSV({ data, fileName: reportType.replace(' ', '_') });
+  };
 
-    const headers = Object.keys(dataToExport[0]);
-    const csvContent = [
-      headers.join(','),
-      ...dataToExport.map(row => headers.map(fieldName => JSON.stringify((row as any)[fieldName])).join(',')),
-    ].join('\n');
+  const handleExportExcel = () => {
+    const data = getDataToExport();
+    if (data.length === 0) return;
+    exportToExcel({ data, fileName: reportType.replace(' ', '_'), sheetName: reportType });
+  };
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `${reportType.replace(' ', '_')}_export.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleExportPDF = () => {
+    const data = getDataToExport();
+    if (data.length === 0) return;
+    exportToPDF({ data, fileName: reportType.replace(' ', '_'), title: reportType });
   };
 
   const header = useMemo(() => {
@@ -519,10 +524,49 @@ const ReportsDashboard: React.FC = () => {
               className="text-sm font-semibold text-slate-700 outline-none"
             />
           </div>
-          <button onClick={handleExport} className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 shadow-lg shadow-primary-200 transition-all">
-            <Download className="h-4 w-4" />
-            <span>Export</span>
-          </button>
+          <div className="relative">
+            <button 
+              onClick={() => setShowExportMenu(!showExportMenu)} 
+              className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 shadow-lg shadow-primary-200 transition-all"
+            >
+              <Download className="h-4 w-4" />
+              <span>Export</span>
+              <MoreVertical className="h-4 w-4" />
+            </button>
+            {showExportMenu && (
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-slate-200 z-50">
+                <div className="py-1">
+                  <button 
+                    onClick={() => {
+                      handleExportCSV();
+                      setShowExportMenu(false);
+                    }} 
+                    className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                  >
+                    Export as CSV
+                  </button>
+                  <button 
+                    onClick={() => {
+                      handleExportExcel();
+                      setShowExportMenu(false);
+                    }} 
+                    className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                  >
+                    Export as Excel
+                  </button>
+                  <button 
+                    onClick={() => {
+                      handleExportPDF();
+                      setShowExportMenu(false);
+                    }} 
+                    className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                  >
+                    Export as PDF
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -590,6 +634,7 @@ const ReportsDashboard: React.FC = () => {
                 <table className="w-full text-left">
                   <thead className="bg-slate-50">
                     <tr>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">S.No</th>
                       <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">User</th>
                       <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Role</th>
                       <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned</th>
@@ -602,8 +647,9 @@ const ReportsDashboard: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {userReportRows.map((r) => (
+                    {userReportRows.map((r, index) => (
                       <tr key={r.user_id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-6 py-4 text-sm font-semibold text-slate-600">{index + 1}</td>
                         <td className="px-6 py-4">
                           <div className="text-sm font-bold text-slate-900">{r.name}</div>
                           <div className="text-xs text-slate-500">{r.user_id}</div>
@@ -620,7 +666,7 @@ const ReportsDashboard: React.FC = () => {
                     ))}
                     {userReportRows.length === 0 && (
                       <tr>
-                        <td colSpan={9} className="px-6 py-12 text-center text-sm font-semibold text-slate-500">
+                        <td colSpan={10} className="px-6 py-12 text-center text-sm font-semibold text-slate-500">
                           No users found for this filter.
                         </td>
                       </tr>
@@ -675,9 +721,19 @@ const ReportsDashboard: React.FC = () => {
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">S.No</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Job / Equipment</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Engineer</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Submitted At</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                    </tr>
+                  </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {inspectionRecentRows.map((rpt) => (
+                    {inspectionRecentRows.map((rpt, index) => (
                       <tr key={rpt.id} className="hover:bg-slate-50 transition-colors group">
+                        <td className="px-6 py-4 text-sm font-semibold text-slate-600">{index + 1}</td>
                         <td className="px-6 py-4">
                           <div className="flex items-center space-x-3">
                             <div className="p-2 bg-slate-50 rounded-lg group-hover:bg-white transition-colors">
@@ -710,7 +766,7 @@ const ReportsDashboard: React.FC = () => {
                     ))}
                     {inspectionRecentRows.length === 0 && (
                       <tr>
-                        <td colSpan={4} className="px-6 py-10 text-center text-sm font-semibold text-slate-500">
+                        <td colSpan={5} className="px-6 py-10 text-center text-sm font-semibold text-slate-500">
                           No inspections in this range.
                         </td>
                       </tr>
@@ -826,6 +882,7 @@ const ReportsDashboard: React.FC = () => {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50">
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">S.No</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Time</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Actor</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Action</th>
@@ -833,8 +890,9 @@ const ReportsDashboard: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {auditRows.map((a) => (
+                {auditRows.map((a, index) => (
                   <tr key={`${a.time}-${a.action}-${a.entity}`} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4 text-sm font-semibold text-slate-600">{index + 1}</td>
                     <td className="px-6 py-4 text-sm text-slate-600">{a.time}</td>
                     <td className="px-6 py-4 text-sm font-semibold text-slate-900">{a.actor}</td>
                     <td className="px-6 py-4 text-sm text-slate-700">{a.action}</td>
@@ -843,7 +901,7 @@ const ReportsDashboard: React.FC = () => {
                 ))}
                 {auditRows.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-6 py-10 text-center text-sm font-semibold text-slate-500">
+                    <td colSpan={5} className="px-6 py-10 text-center text-sm font-semibold text-slate-500">
                       No audit logs in this range.
                     </td>
                   </tr>
@@ -870,6 +928,7 @@ const ReportsDashboard: React.FC = () => {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50">
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">S.No</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Branch</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Country</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Engineers</th>
@@ -878,8 +937,9 @@ const ReportsDashboard: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {branchRows.map((b) => (
+                {branchRows.map((b, index) => (
                   <tr key={b.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4 text-sm font-semibold text-slate-600">{index + 1}</td>
                     <td className="px-6 py-4 text-sm font-bold text-slate-900">{b.branch}</td>
                     <td className="px-6 py-4 text-sm text-slate-700">{b.country}</td>
                     <td className="px-6 py-4 text-sm text-slate-700">{b.engineers}</td>
@@ -893,7 +953,7 @@ const ReportsDashboard: React.FC = () => {
                 ))}
                 {branchRows.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-6 py-10 text-center text-sm font-semibold text-slate-500">
+                    <td colSpan={6} className="px-6 py-10 text-center text-sm font-semibold text-slate-500">
                       No branches found.
                     </td>
                   </tr>
@@ -920,6 +980,7 @@ const ReportsDashboard: React.FC = () => {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50">
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">S.No</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Type</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Total</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Latest Updates</th>
@@ -927,8 +988,9 @@ const ReportsDashboard: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {documentRows.map((d) => (
+                {documentRows.map((d, index) => (
                   <tr key={d.type} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4 text-sm font-semibold text-slate-600">{index + 1}</td>
                     <td className="px-6 py-4 text-sm font-bold text-slate-900">{d.type}</td>
                     <td className="px-6 py-4 text-sm text-slate-700">{d.total}</td>
                     <td className="px-6 py-4 text-sm text-slate-700">{d.latest}</td>
@@ -939,7 +1001,7 @@ const ReportsDashboard: React.FC = () => {
                 ))}
                 {documentRows.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-6 py-10 text-center text-sm font-semibold text-slate-500">
+                    <td colSpan={5} className="px-6 py-10 text-center text-sm font-semibold text-slate-500">
                       No documents in this range.
                     </td>
                   </tr>

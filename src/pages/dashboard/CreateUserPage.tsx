@@ -314,8 +314,11 @@ const CreateUserPage: React.FC = () => {
             >
               <option value="">Select role</option>
               <option value="super_admin">Super Admin</option>
-              <option value="admin">Admin / Operations Manager</option>
+              <option value="admin">Admin</option>
+              <option value="coordinator">Coordinator</option>
+              <option value="operation_manager">Operation Manager</option>
               <option value="engineer">Engineer / Inspector</option>
+              <option value="trainer">Trainer</option>
               <option value="sales">Sales</option>
             </select>
           </div>

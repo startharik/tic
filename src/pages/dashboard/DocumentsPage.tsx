@@ -711,6 +711,7 @@ const DocumentsPage: React.FC = () => {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50">
+                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">S.No</th>
                     <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Name</th>
                     <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Type</th>
                     <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Version</th>
@@ -719,8 +720,9 @@ const DocumentsPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredDocuments.map((d) => (
+                  {filteredDocuments.map((d, index) => (
                     <tr key={d.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-6 py-4 text-sm font-semibold text-slate-600">{index + 1}</td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="h-10 w-10 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center">
@@ -775,7 +777,7 @@ const DocumentsPage: React.FC = () => {
                   ))}
                   {filteredDocuments.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="px-6 py-10 text-center text-sm text-slate-500">
+                      <td colSpan={6} className="px-6 py-10 text-center text-sm text-slate-500">
                         No documents found.
                       </td>
                     </tr>

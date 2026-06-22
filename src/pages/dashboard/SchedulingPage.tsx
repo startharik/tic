@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CalendarDays, Filter, Loader2, Search, Users, Eye, RefreshCw, Save, X } from 'lucide-react';
+import { CalendarDays, Filter, Loader2, Search, Users, Eye, RefreshCw, Save, X, Download, ChevronDown, FileText, FileSpreadsheet } from 'lucide-react';
 import { getBranches, getJobs, getUsers, updateJob } from '../../services/supabaseService';
 import type { Branch, Job, User } from '../../services/supabaseService';
+import { exportToCSV, exportToExcel, exportToPDF } from '../../utils/export';
 
 type AssignModalState =
   | { open: false }
@@ -66,6 +67,8 @@ const SchedulingPage: React.FC = () => {
   const [status, setStatus] = useState<'all' | string>('all');
 
   const [assignModal, setAssignModal] = useState<AssignModalState>({ open: false });
+  const [showExportDropdown, setShowExportDropdown] = useState(false);
+  const exportDropdownRef = useRef<HTMLDivElement>(null);
 
   const engineers = useMemo(() => users.filter((u) => u.role === 'engineer'), [users]);
 
@@ -167,6 +170,51 @@ const SchedulingPage: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (exportDropdownRef.current && !exportDropdownRef.current.contains(event.target as Node)) {
+        setShowExportDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const getExportData = () => {
+    return filteredJobs.map((j) => {
+      const engineer = users.find(u => u.id === j.assigned_to);
+      return {
+        'Job ID': j.id.slice(0, 8).toUpperCase(),
+        'Job Title': j.title,
+        'Client': j.clients?.name || 'Unknown',
+        'Branch': j.branches?.name || 'Unknown',
+        'Engineer': engineer ? displayName(engineer) : 'Unassigned',
+        'Scheduled Date': j.scheduled_date ? new Date(j.scheduled_date).toLocaleString() : 'Not Scheduled',
+        'Status': j.status.charAt(0).toUpperCase() + j.status.slice(1)
+      };
+    });
+  };
+
+  const handleExportCSV = () => {
+    const data = getExportData();
+    if (data.length === 0) return;
+    exportToCSV({ data, fileName: 'scheduling' });
+  };
+
+  const handleExportExcel = () => {
+    const data = getExportData();
+    if (data.length === 0) return;
+    exportToExcel({ data, fileName: 'scheduling', sheetName: 'Scheduling' });
+  };
+
+  const handleExportPDF = () => {
+    const data = getExportData();
+    if (data.length === 0) return;
+    exportToPDF({ data, fileName: 'scheduling', title: 'Scheduling Report' });
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -183,6 +231,53 @@ const SchedulingPage: React.FC = () => {
           <p className="text-slate-500 mt-1">Plan and assign jobs across engineers and branches.</p>
         </div>
         <div className="flex items-center gap-3">
+          <div className="relative" ref={exportDropdownRef}>
+            <button 
+              onClick={() => setShowExportDropdown(!showExportDropdown)}
+              className="flex items-center space-x-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              <Download className="h-4 w-4" />
+              <span>Export</span>
+              <ChevronDown className="h-4 w-4" />
+            </button>
+            
+            {showExportDropdown && (
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-50">
+                <button 
+                  onClick={() => {
+                    handleExportCSV();
+                    setShowExportDropdown(false);
+                  }}
+                  className="flex items-center space-x-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 w-full text-left"
+                >
+                  <FileText className="h-4 w-4 text-blue-600" />
+                  <span>Export to CSV</span>
+                </button>
+                
+                <button 
+                  onClick={() => {
+                    handleExportExcel();
+                    setShowExportDropdown(false);
+                  }}
+                  className="flex items-center space-x-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 w-full text-left"
+                >
+                  <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+                  <span>Export to Excel</span>
+                </button>
+                
+                <button 
+                  onClick={() => {
+                    handleExportPDF();
+                    setShowExportDropdown(false);
+                  }}
+                  className="flex items-center space-x-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 w-full text-left"
+                >
+                  <FileText className="h-4 w-4 text-purple-600" />
+                  <span>Export to PDF</span>
+                </button>
+              </div>
+            )}
+          </div>
           <button
             type="button"
             onClick={fetchData}
@@ -302,6 +397,7 @@ const SchedulingPage: React.FC = () => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50">
+                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">S.No</th>
                 <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Job</th>
                 <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Client</th>
                 <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Branch</th>
@@ -312,12 +408,13 @@ const SchedulingPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredJobs.map((j) => {
+              {filteredJobs.map((j, index) => {
                 const engineer = j.assigned_users
                   ? `${j.assigned_users.first_name} ${j.assigned_users.last_name}`.trim()
                   : '';
                 return (
                   <tr key={j.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4 text-sm font-semibold text-slate-600">{index + 1}</td>
                     <td className="px-6 py-4">
                       <div className="text-sm font-semibold text-slate-900">{j.title}</div>
                       <div className="text-xs text-slate-500">{j.id}</div>
@@ -358,7 +455,7 @@ const SchedulingPage: React.FC = () => {
               })}
               {filteredJobs.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-10 text-center text-sm text-slate-500">
+                  <td colSpan={8} className="px-6 py-10 text-center text-sm text-slate-500">
                     No scheduled jobs in this range.
                   </td>
                 </tr>

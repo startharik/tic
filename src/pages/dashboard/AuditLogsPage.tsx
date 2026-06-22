@@ -358,6 +358,7 @@ const AuditLogsPage: React.FC = () => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50">
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">S.No</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">User</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Events</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Last Activity</th>
@@ -368,13 +369,14 @@ const AuditLogsPage: React.FC = () => {
             <tbody className="divide-y divide-slate-100">
               {logsByUser.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-10 text-center text-slate-500">
+                  <td colSpan={6} className="px-6 py-10 text-center text-slate-500">
                     No activity in this range.
                   </td>
                 </tr>
               ) : (
-                logsByUser.map((row) => (
+                logsByUser.map((row, index) => (
                   <tr key={row.key} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-6 py-4 text-sm font-semibold text-slate-600">{index + 1}</td>
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-2">
                         <div className="h-7 w-7 rounded-full bg-primary-50 flex items-center justify-center">
@@ -413,6 +415,7 @@ const AuditLogsPage: React.FC = () => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50">
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">S.No</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Timestamp</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">User</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Action</th>
@@ -425,13 +428,16 @@ const AuditLogsPage: React.FC = () => {
             <tbody className="divide-y divide-slate-100">
               {pagedLogs.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
                     No audit logs found.
                   </td>
                 </tr>
               ) : (
-                pagedLogs.map((log) => (
+                pagedLogs.map((log, index) => (
                   <tr key={log.id} className="hover:bg-slate-50/50 transition-colors group">
+                    <td className="px-6 py-4 text-sm font-semibold text-slate-600">
+                      {(page - 1) * pageSize + index + 1}
+                    </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-2 text-xs font-medium text-slate-600">
                         <Clock className="h-3.5 w-3.5 text-slate-400" />

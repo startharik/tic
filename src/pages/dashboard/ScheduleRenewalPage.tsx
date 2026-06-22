@@ -113,6 +113,7 @@ const ScheduleRenewalPage: React.FC = () => {
         description: notes.trim() || undefined,
         status: 'assigned',
         priority,
+        type: 'inspection',
         site_address: address || undefined,
         site_latitude: coords?.lat,
         site_longitude: coords?.lng,

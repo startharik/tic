@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   ClipboardList, 
@@ -21,6 +21,7 @@ import {
   FolderOpen,
   MessageSquare,
   ClipboardCheck,
+  GraduationCap,
   Image,
   Megaphone,
   CalendarDays,
@@ -34,7 +35,7 @@ type MenuItem = {
   icon: any;
   label: string;
   path: string;
-  requiredRole: Array<'super_admin' | 'admin' | 'engineer' | 'sales'>;
+  requiredRole: Array<'super_admin' | 'admin' | 'engineer' | 'trainer' | 'sales' | 'coordinator' | 'operation_manager'>;
 };
 
 type MenuSection = {
@@ -60,17 +61,24 @@ const DashboardLayout: React.FC = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearchResults, setShowSearchResults] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notifLoading, setNotifLoading] = useState(true);
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, userProfile, signOut } = useAuth();
   const notificationRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
   
   // Handle click outside notification dropdown
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (notificationRef.current && !notificationRef.current.contains(e.target as Node)) {
         setShowNotifications(false);
+      }
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setShowSearchResults(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -109,15 +117,16 @@ const DashboardLayout: React.FC = () => {
       {
         title: 'Overview',
         items: [
-          { icon: LayoutDashboard, label: 'Dashboard', path: '/admin', requiredRole: ['super_admin', 'admin', 'engineer', 'sales'] },
+          { icon: LayoutDashboard, label: 'Dashboard', path: '/admin', requiredRole: ['super_admin', 'admin', 'engineer', 'sales', 'coordinator', 'operation_manager'] },
         ],
       },
       {
         title: 'Operations',
         items: [
-          { icon: ClipboardList, label: 'Jobs', path: '/admin/jobs', requiredRole: ['super_admin', 'admin', 'engineer', 'sales'] },
-          { icon: ClipboardCheck, label: 'Inspections', path: '/admin/inspections', requiredRole: ['super_admin', 'admin', 'engineer'] },
-          { icon: Package, label: 'Assets', path: '/admin/equipment', requiredRole: ['super_admin', 'admin', 'engineer'] },
+          { icon: ClipboardList, label: 'Jobs', path: '/admin/jobs', requiredRole: ['super_admin', 'admin', 'engineer', 'sales', 'coordinator', 'operation_manager'] },
+          { icon: ClipboardCheck, label: 'Inspections', path: '/admin/inspections', requiredRole: ['super_admin', 'admin', 'engineer', 'operation_manager'] },
+          { icon: GraduationCap, label: 'Trainings', path: '/admin/trainings', requiredRole: ['super_admin', 'admin', 'operation_manager'] },
+          { icon: Package, label: 'Assets', path: '/admin/equipment', requiredRole: ['super_admin', 'admin', 'engineer', 'coordinator', 'operation_manager'] },
           { icon: CalendarClock, label: 'Renewals', path: '/admin/renewals', requiredRole: ['super_admin', 'admin', 'sales'] },
           { icon: CalendarDays, label: 'Scheduling', path: '/admin/scheduling', requiredRole: ['super_admin', 'admin'] },
         ],
@@ -125,16 +134,16 @@ const DashboardLayout: React.FC = () => {
       {
         title: 'Collaboration',
         items: [
-          { icon: MessageSquare, label: 'Chat', path: '/admin/chat', requiredRole: ['super_admin', 'admin', 'engineer'] },
-          { icon: FolderOpen, label: 'Documents', path: '/admin/documents', requiredRole: ['super_admin', 'admin', 'engineer'] },
-          { icon: Image, label: 'Media', path: '/admin/media', requiredRole: ['super_admin', 'admin', 'engineer'] },
-          { icon: Megaphone, label: 'Notifications', path: '/admin/notifications', requiredRole: ['super_admin', 'admin', 'engineer', 'sales'] },
+          { icon: MessageSquare, label: 'Chat', path: '/admin/chat', requiredRole: ['super_admin', 'admin', 'engineer', 'coordinator'] },
+          { icon: FolderOpen, label: 'Documents', path: '/admin/documents', requiredRole: ['super_admin', 'admin', 'engineer', 'coordinator', 'operation_manager'] },
+          { icon: Image, label: 'Media', path: '/admin/media', requiredRole: ['super_admin', 'admin', 'engineer', 'coordinator', 'operation_manager'] },
+          { icon: Megaphone, label: 'Notifications', path: '/admin/notifications', requiredRole: ['super_admin', 'admin', 'engineer', 'sales', 'coordinator', 'operation_manager'] },
         ],
       },
       {
         title: 'Monitoring',
         items: [
-          { icon: MapPin, label: 'Live Tracking', path: '/admin/tracking', requiredRole: ['super_admin', 'admin'] },
+          { icon: MapPin, label: 'Live Tracking', path: '/admin/tracking', requiredRole: ['super_admin', 'admin', 'coordinator', 'trainer', 'engineer', 'operation_manager'] },
         ],
       },
       {
@@ -169,6 +178,46 @@ const DashboardLayout: React.FC = () => {
       }))
       .filter((section) => section.items.length > 0);
   }, [userProfile?.role]);
+
+  const searchResults = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return [];
+
+    return menuSections
+      .flatMap((section) =>
+        section.items.map((item) => ({
+          ...item,
+          sectionTitle: section.title,
+        })),
+      )
+      .filter((item) => {
+        const label = item.label.toLowerCase();
+        const path = item.path.toLowerCase();
+        const sectionTitle = item.sectionTitle.toLowerCase();
+        return (
+          label.includes(query) ||
+          path.includes(query) ||
+          sectionTitle.includes(query)
+        );
+      })
+      .slice(0, 8);
+  }, [menuSections, searchQuery]);
+
+  const handleSearchNavigate = (path: string) => {
+    navigate(path);
+    setSearchQuery('');
+    setShowSearchResults(false);
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && searchResults.length > 0) {
+      e.preventDefault();
+      handleSearchNavigate(searchResults[0].path);
+    }
+    if (e.key === 'Escape') {
+      setShowSearchResults(false);
+    }
+  };
 
   const handleLogout = async () => {
     await signOut();
@@ -232,13 +281,43 @@ const DashboardLayout: React.FC = () => {
           </button>
 
           <div className="flex-1 max-w-xl mx-4 hidden md:block">
-            <div className="relative">
+            <div className="relative" ref={searchRef}>
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
               <input
                 type="text"
                 placeholder="Search jobs, engineers, reports..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setShowSearchResults(e.target.value.trim().length > 0);
+                }}
+                onFocus={() => setShowSearchResults(searchQuery.trim().length > 0)}
+                onKeyDown={handleSearchKeyDown}
                 className="w-full pl-10 pr-4 py-2 bg-slate-100 border-transparent rounded-full text-sm focus:bg-white focus:ring-2 focus:ring-primary-500 transition-all"
               />
+              {showSearchResults && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden z-50">
+                  {searchResults.length > 0 ? (
+                    <div className="py-2">
+                      {searchResults.map((result) => (
+                        <button
+                          key={result.path}
+                          type="button"
+                          onClick={() => handleSearchNavigate(result.path)}
+                          className="w-full px-4 py-3 text-left hover:bg-slate-50 transition-colors"
+                        >
+                          <div className="text-sm font-semibold text-slate-900">{result.label}</div>
+                          <div className="text-xs text-slate-500">{result.sectionTitle} · {result.path}</div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="px-4 py-3 text-sm text-slate-500">
+                      No matching pages found
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

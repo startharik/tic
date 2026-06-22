@@ -71,7 +71,7 @@ const MainDashboard: React.FC = () => {
   });
   const [branchData, setBranchData] = useState<any[]>([]);
   const [statusData, setStatusData] = useState<any[]>([]);
-  const [engineersOnSite, setEngineersOnSite] = useState<Array<{ name: string; location: string; lat: number; lng: number }>>([]);
+  const [usersLive, setUsersLive] = useState<Array<{ name: string; location: string; lat: number; lng: number; role: string }>>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -135,10 +135,10 @@ const MainDashboard: React.FC = () => {
         }
 
         const now = Date.now();
-        const engineers = Array.from(latestByUser.values())
+        const usersList = Array.from(latestByUser.values())
           .filter((loc) => {
             const user = users.find((u) => u.id === loc.user_id);
-            if (!user || user.role !== 'engineer') return false;
+            if (!user || user.role === 'super_admin') return false;
             const ts = new Date(loc.recorded_at).getTime();
             return Number.isFinite(ts) && (now - ts) <= 10 * 60 * 1000;
           })
@@ -147,13 +147,14 @@ const MainDashboard: React.FC = () => {
             const name = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Unknown User' : 'Unknown User';
             return {
               name,
+              role: user?.role || 'unknown',
               location: loc.jobs?.title || 'On Site',
               lat: loc.latitude,
               lng: loc.longitude,
             };
           });
 
-        setEngineersOnSite(engineers);
+        setUsersLive(usersList);
       } catch (e) {
         console.error('Error fetching live tracking:', e);
       }
@@ -271,7 +272,7 @@ const MainDashboard: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-            <div className="text-sm font-bold text-slate-900">Live Engineer Tracking</div>
+            <div className="text-sm font-bold text-slate-900">Live User Tracking</div>
             <Link to="/admin/tracking" className="text-sm font-semibold text-primary-600 hover:text-primary-700">
               View Live Map
             </Link>
@@ -287,10 +288,11 @@ const MainDashboard: React.FC = () => {
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
                 url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
               />
-              {engineersOnSite.map((e) => (
+              {usersLive.map((e) => (
                 <Marker key={e.name} position={[e.lat, e.lng]} icon={engineerMarkerIcon}>
                   <Popup>
                     <div className="font-semibold">{e.name}</div>
+                    <div className="text-sm">{e.role.replace('_', ' ')}</div>
                     <div className="text-sm">{e.location}</div>
                   </Popup>
                 </Marker>
@@ -305,14 +307,14 @@ const MainDashboard: React.FC = () => {
 
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-            <div className="text-sm font-bold text-slate-900">Engineers On Site</div>
+            <div className="text-sm font-bold text-slate-900">Users Live</div>
             <div className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500">
               <Users className="h-4 w-4" />
-              <span>{engineersOnSite.length}</span>
+              <span>{usersLive.length}</span>
             </div>
           </div>
           <div className="p-4 space-y-3">
-            {engineersOnSite.map((e) => (
+            {usersLive.map((e) => (
               <div key={e.name} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="h-9 w-9 rounded-full bg-white border border-slate-200 flex items-center justify-center text-xs font-extrabold text-slate-700">
@@ -324,7 +326,7 @@ const MainDashboard: React.FC = () => {
                   </div>
                   <div className="min-w-0">
                     <div className="text-sm font-bold text-slate-900 truncate">{e.name}</div>
-                    <div className="text-xs text-slate-500 truncate">{e.location}</div>
+                    <div className="text-xs text-slate-500 truncate">{e.location} • {e.role.replace('_', ' ')}</div>
                   </div>
                 </div>
                 <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,0.15)]" />

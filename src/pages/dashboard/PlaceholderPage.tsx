@@ -134,7 +134,7 @@ const PlaceholderPage: React.FC<PlaceholderPageProps> = ({
               <table className="w-full border-collapse text-left">
                 <thead>
                   <tr className="bg-slate-50">
-                    {['ID', 'Title', 'Owner', 'Updated', 'Status', 'Action'].map((h) => (
+                    {['S.No', 'ID', 'Title', 'Owner', 'Updated', 'Status', 'Action'].map((h) => (
                       <th
                         key={h}
                         className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500"
@@ -147,6 +147,7 @@ const PlaceholderPage: React.FC<PlaceholderPageProps> = ({
                 <tbody className="divide-y divide-slate-100">
                   {Array.from({ length: 6 }).map((_, idx) => (
                     <tr key={idx} className="hover:bg-slate-50">
+                      <td className="px-6 py-4 text-sm font-semibold text-slate-600">{idx + 1}</td>
                       <td className="px-6 py-4 text-sm font-semibold text-primary-600">
                         {`AI-${String(idx + 1).padStart(3, '0')}`}
                       </td>

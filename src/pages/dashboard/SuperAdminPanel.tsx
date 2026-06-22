@@ -70,6 +70,7 @@ const SuperAdminPanel: React.FC = () => {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-slate-50/50">
+                  <th className="px-6 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">S.No</th>
                   <th className="px-6 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Region</th>
                   <th className="px-6 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-center">Branches</th>
                   <th className="px-6 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-center">Engineers</th>
@@ -79,6 +80,7 @@ const SuperAdminPanel: React.FC = () => {
               <tbody className="divide-y divide-slate-50">
                 {regions.map((region, idx) => (
                   <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4 text-sm font-semibold text-slate-600">{idx + 1}</td>
                     <td className="px-6 py-4">
                       <span className="text-sm font-bold text-slate-900">{region.name}</span>
                     </td>

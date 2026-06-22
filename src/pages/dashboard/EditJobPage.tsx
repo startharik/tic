@@ -42,17 +42,20 @@ const EditJobPage: React.FC = () => {
   const [initialSiteAddress, setInitialSiteAddress] = useState<string>('');
   const [initialCoords, setInitialCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [initialAssignedTo, setInitialAssignedTo] = useState<string>('');
+  const [initialTrainerId, setInitialTrainerId] = useState<string>('');
   const [initialSalesPersonId, setInitialSalesPersonId] = useState<string>('');
   const [formData, setFormData] = useState({
     client_id: '',
     branch_id: '',
     equipment_id: '',
     assigned_to: '',
+    trainer_id: '',
     sales_person_id: '',
     title: '',
     description: '',
     status: 'assigned' as string,
     priority: 'medium' as string,
+    type: 'inspection' as string,
     site_address: '',
     site_latitude: '',
     site_longitude: '',
@@ -131,17 +134,20 @@ const EditJobPage: React.FC = () => {
           setInitialCoords(null);
         }
         setInitialAssignedTo(jobData.assigned_to || '');
+        setInitialTrainerId(jobData.trainer_id || '');
         setInitialSalesPersonId(jobData.sales_person_id || '');
         setFormData({
           client_id: jobData.client_id || '',
           branch_id: jobData.branch_id || '',
           equipment_id: jobData.equipment_id || '',
           assigned_to: jobData.assigned_to || '',
+          trainer_id: jobData.trainer_id || '',
           sales_person_id: jobData.sales_person_id || '',
           title: jobData.title,
           description: jobData.description || '',
           status: jobData.status as any,
           priority: jobData.priority as any,
+          type: jobData.type || 'inspection',
           site_address: jobData.site_address || '',
           site_latitude: jobData.site_latitude !== undefined && jobData.site_latitude !== null ? String(jobData.site_latitude) : '',
           site_longitude: jobData.site_longitude !== undefined && jobData.site_longitude !== null ? String(jobData.site_longitude) : '',
@@ -178,11 +184,13 @@ const EditJobPage: React.FC = () => {
         branch_id: formData.branch_id || undefined,
         equipment_id: formData.equipment_id || undefined,
         assigned_to: formData.assigned_to || undefined,
+        trainer_id: formData.trainer_id || undefined,
         sales_person_id: formData.sales_person_id || undefined,
         title: formData.title,
         description: formData.description || undefined,
         status: formData.status,
         priority: formData.priority,
+        type: formData.type,
         site_address: address || undefined,
         ...(newCoords ? { site_latitude: newCoords.lat, site_longitude: newCoords.lng } : {}),
         scheduled_date: dateOnlyToISO(formData.scheduled_date),
@@ -195,6 +203,17 @@ const EditJobPage: React.FC = () => {
           user_id: formData.assigned_to,
           title: "Job Updated - New Assignment",
           message: `You have been assigned to job: ${formData.title}`,
+          type: formData.priority === 'urgent' ? 'warning' : 'info',
+          related_job_id: jobId,
+          is_read: false,
+        });
+      }
+
+      if (formData.trainer_id && formData.trainer_id !== initialTrainerId) {
+        await createNotification({
+          user_id: formData.trainer_id,
+          title: "Job Updated - New Trainer Assignment",
+          message: `You have been assigned as trainer to job: ${formData.title}`,
           type: formData.priority === 'urgent' ? 'warning' : 'info',
           related_job_id: jobId,
           is_read: false,
@@ -307,6 +326,18 @@ const EditJobPage: React.FC = () => {
                         {branch.name}
                       </option>
                     ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">Job Type</label>
+                  <select
+                    value={formData.type}
+                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+                  >
+                    <option value="inspection">Inspection</option>
+                    <option value="training">Training</option>
                   </select>
                 </div>
 
@@ -536,6 +567,21 @@ const EditJobPage: React.FC = () => {
                   ))}
                 </select>
               </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Assign Trainer</label>
+                <select 
+                  value={formData.trainer_id}
+                  onChange={(e) => setFormData({ ...formData, trainer_id: e.target.value })}
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+                >
+                  <option value="">Select Trainer</option>
+                  {users.filter(u => u.role === 'trainer').map((user) => (
+                    <option key={user.id} value={user.id}>{user.first_name} {user.last_name}</option>
+                  ))}
+                </select>
+              </div>
+
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-700">Assign Sales Person</label>
                 <select 

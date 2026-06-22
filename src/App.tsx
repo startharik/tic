@@ -1,6 +1,7 @@
 import { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
+import { LocationTracker } from './components/LocationTracker';
 
 const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
 const DashboardLayout = lazy(() => import('./layouts/DashboardLayout'));
@@ -35,6 +36,8 @@ const JobMapPage = lazy(() => import('./pages/dashboard/JobMapPage'));
 const AssetDetailsPage = lazy(() => import('./pages/dashboard/AssetDetailsPage'));
 const InspectionManagementPage = lazy(() => import('./pages/dashboard/InspectionManagementPage'));
 const ReviewInspectionPage = lazy(() => import('./pages/dashboard/ReviewInspectionPage'));
+const TrainingManagementPage = lazy(() => import('./pages/dashboard/TrainingManagementPage'));
+const ReviewTrainingPage = lazy(() => import('./pages/dashboard/ReviewTrainingPage'));
 const MediaManagementPage = lazy(() => import('./pages/dashboard/MediaManagementPage'));
 const NotificationManagementPage = lazy(() => import('./pages/dashboard/NotificationManagementPage'));
 const AuditLogsPage = lazy(() => import('./pages/dashboard/AuditLogsPage'));
@@ -52,6 +55,7 @@ function App() {
   return (
     <Router>
       <Suspense fallback={<AppShellFallback />}>
+        <LocationTracker />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route
@@ -114,6 +118,8 @@ function App() {
             <Route path="inspections/ncr" element={<PlaceholderPage title="NCR (Non-Conformance Report)" variant="form" />} />
             <Route path="inspections/corrective-actions" element={<PlaceholderPage title="Corrective Actions" variant="table" />} />
             <Route path="inspections/history" element={<PlaceholderPage title="Inspection History" variant="table" />} />
+            <Route path="trainings" element={<TrainingManagementPage />} />
+            <Route path="trainings/:id/review" element={<ReviewTrainingPage />} />
             <Route path="media" element={<MediaManagementPage />} />
             <Route path="media/photos" element={<PlaceholderPage title="Photos Review" variant="table" />} />
             <Route path="media/approvals" element={<PlaceholderPage title="Media Approval" variant="table" />} />
