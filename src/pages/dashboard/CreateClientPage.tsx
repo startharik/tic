@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Save, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getCountries, createClient } from '../../services/supabaseService';
+import { useAuth } from '../../contexts/AuthContext';
 import type { Country } from '../../services/supabaseService';
 
 const CreateClientPage: React.FC = () => {
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
   const [loading, setLoading] = useState(false);
   const [countries, setCountries] = useState<Country[]>([]);
   const [formData, setFormData] = useState({
@@ -19,6 +21,10 @@ const CreateClientPage: React.FC = () => {
   });
 
   useEffect(() => {
+    if (!hasPermission('write:clients')) {
+      navigate('/admin/clients');
+      return;
+    }
     const fetchCountries = async () => {
       try {
         const data = await getCountries();

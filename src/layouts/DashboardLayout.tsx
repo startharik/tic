@@ -143,15 +143,15 @@ const DashboardLayout: React.FC = () => {
       {
         title: 'Monitoring',
         items: [
-          { icon: MapPin, label: 'Live Tracking', path: '/admin/tracking', requiredRole: ['super_admin', 'admin', 'coordinator', 'trainer', 'engineer', 'operation_manager'] },
+          { icon: MapPin, label: 'Live Tracking', path: '/admin/tracking', requiredRole: ['super_admin'] },
         ],
       },
       {
         title: 'Management',
         items: [
-          { icon: Contact, label: 'Clients', path: '/admin/clients', requiredRole: ['super_admin', 'admin', 'sales'] },
+          { icon: Contact, label: 'Clients', path: '/admin/clients', requiredRole: ['super_admin', 'admin', 'sales', 'coordinator'] },
           { icon: Users, label: 'Users', path: '/admin/users', requiredRole: ['super_admin', 'admin'] },
-          { icon: Building2, label: 'Branches', path: '/admin/branches', requiredRole: ['super_admin', 'admin'] },
+          { icon: Building2, label: 'Branches', path: '/admin/branches', requiredRole: ['super_admin', 'admin', 'coordinator'] },
         ],
       },
       {

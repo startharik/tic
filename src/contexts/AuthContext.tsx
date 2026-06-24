@@ -247,7 +247,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const rolePermissions: Record<string, string[]> = {
       super_admin: ['*'],
       admin: ['*'],
-      coordinator: ['read:jobs', 'write:jobs', 'read:equipment', 'read:documents', 'read:media'],
+      coordinator: ['read:jobs', 'write:jobs', 'read:equipment', 'read:documents', 'read:media', 'write:clients', 'write:branches', 'read:clients'],
       operation_manager: ['read:jobs', 'read:inspections', 'write:inspections', 'read:trainings', 'write:trainings', 'read:media', 'read:documents', 'read:equipment'],
       engineer: ['read:jobs', 'read:equipment', 'write:inspections'],
       trainer: ['read:jobs', 'read:equipment', 'write:trainings'],

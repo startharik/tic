@@ -13,6 +13,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import * as L from 'leaflet';
 import { getLocationTracking, getUsers } from '../../services/supabaseService';
 import type { LocationTracking, User } from '../../services/supabaseService';
+import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 
 const engineerMarkerIcon = L.divIcon({
@@ -65,6 +66,19 @@ const MapControls: React.FC = () => {
 };
 
 const LiveTrackingPage: React.FC = () => {
+  const { userProfile } = useAuth();
+
+  // Only super admins can view live tracking details
+  if (userProfile?.role !== 'super_admin') {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-lg font-semibold">Not authorized</h2>
+          <p className="text-sm text-slate-500">You do not have permission to view live tracking details.</p>
+        </div>
+      </div>
+    );
+  }
   const [loading, setLoading] = useState(true);
   const [locationData, setLocationData] = useState<LocationTracking[]>([]);
   const [users, setUsers] = useState<User[]>([]);

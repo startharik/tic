@@ -13,10 +13,12 @@ import {
   Loader2
 } from 'lucide-react';
 import { getBranches, getUsers, getJobs, deleteBranch } from '../../services/supabaseService';
+import { useAuth } from '../../contexts/AuthContext';
 import type { Branch, User, Job } from '../../services/supabaseService';
 
 const BranchesPage: React.FC = () => {
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
   const [branches, setBranches] = useState<Branch[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -65,14 +67,16 @@ const BranchesPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-900">Branch Management</h1>
           <p className="text-slate-500 mt-1">Manage physical locations and branch operations.</p>
         </div>
-        <button
-          type="button"
-          onClick={() => navigate('/admin/branches/create')}
-          className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 shadow-lg shadow-primary-200 transition-all"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Add New Branch</span>
-        </button>
+        {hasPermission('write:branches') && (
+          <button
+            type="button"
+            onClick={() => navigate('/admin/branches/create')}
+            className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 shadow-lg shadow-primary-200 transition-all"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Add New Branch</span>
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

@@ -9,7 +9,8 @@ export const LocationTracker: React.FC = () => {
 
   const pushLocation = async () => {
     if (isTrackingRef.current) return;
-    if (!user || !userProfile || userProfile.role === 'super_admin') return;
+    const allowedRoles = ['engineer', 'trainer', 'operation_manager'];
+    if (!user || !userProfile || !allowedRoles.includes(userProfile.role)) return;
 
     try {
       isTrackingRef.current = true;
@@ -59,7 +60,8 @@ export const LocationTracker: React.FC = () => {
   };
 
   useEffect(() => {
-    if (user && userProfile && userProfile.role !== 'super_admin') {
+    const allowedRoles = ['engineer', 'trainer', 'operation_manager'];
+    if (user && userProfile && allowedRoles.includes(userProfile.role)) {
       startTracking();
     } else {
       stopTracking();
@@ -72,8 +74,9 @@ export const LocationTracker: React.FC = () => {
 
   // Also handle visibility change
   useEffect(() => {
+    const allowedRoles = ['engineer', 'trainer', 'operation_manager'];
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && user && userProfile && userProfile.role !== 'super_admin') {
+      if (document.visibilityState === 'visible' && user && userProfile && allowedRoles.includes(userProfile.role)) {
         pushLocation();
       }
     };
