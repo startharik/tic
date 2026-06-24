@@ -167,6 +167,7 @@ export interface Inspection {
   approved_at?: string;
   approved_by?: string;
   rejection_reason?: string;
+  timesheet_no?: string;
   created_at: string;
   updated_at: string;
   jobs?: { id: string; title: string; sales_person_id?: string };

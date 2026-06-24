@@ -34,6 +34,51 @@ const ReviewInspectionPage: React.FC = () => {
   }>>([]);
   const [error, setError] = useState<string | null>(null);
 
+  const parseWatermarkTimestamp = (value: any): string => {
+    if (!value) return '';
+    const raw = value.toString();
+    const parsed = new Date(raw);
+    if (!Number.isNaN(parsed.getTime())) return parsed.toLocaleString();
+
+    const match = raw.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})[ T](\d{1,2}):(\d{2}):(\d{2})/);
+    if (match) {
+      const [, day, month, year, hour, minute, second] = match;
+      const iso = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hour.padStart(2, '0')}:${minute}:${second}`;
+      const fallback = new Date(iso);
+      if (!Number.isNaN(fallback.getTime())) return fallback.toLocaleString();
+    }
+
+    return raw;
+  };
+
+  const parseWatermarkGps = (gps: any): { latitude: number; longitude: number } | null => {
+    if (!gps) return null;
+    if (typeof gps === 'string') {
+      const match = gps.match(/(-?\d+\.\d+),\s*(-?\d+\.\d+)/);
+      if (match) {
+        return { latitude: Number(match[1]), longitude: Number(match[2]) };
+      }
+      const cleaned = gps.replace(/GPS:\s*/i, '').trim();
+      const cleanedMatch = cleaned.match(/(-?\d+\.\d+),\s*(-?\d+\.\d+)/);
+      if (cleanedMatch) {
+        return { latitude: Number(cleanedMatch[1]), longitude: Number(cleanedMatch[2]) };
+      }
+      return null;
+    }
+    if (typeof gps === 'object') {
+      if (gps.latitude != null && gps.longitude != null) {
+        return { latitude: Number(gps.latitude), longitude: Number(gps.longitude) };
+      }
+      if (gps.gps_coordinates && typeof gps.gps_coordinates === 'object' && gps.gps_coordinates.latitude != null && gps.gps_coordinates.longitude != null) {
+        return {
+          latitude: Number(gps.gps_coordinates.latitude),
+          longitude: Number(gps.gps_coordinates.longitude),
+        };
+      }
+    }
+    return null;
+  };
+
   useEffect(() => {
     const run = async () => {
       if (!id) {
@@ -260,14 +305,9 @@ const ReviewInspectionPage: React.FC = () => {
                     .filter((m) => m.file_type === 'image')
                     .slice(0, 12)
                     .map((m) => {
-                      const timestamp = m.watermark_data?.timestamp 
-                        ? new Date(m.watermark_data.timestamp).toLocaleString() 
-                        : new Date(m.created_at).toLocaleString();
-                      const lat = m.watermark_data?.gps?.latitude;
-                      const lng = m.watermark_data?.gps?.longitude;
-                      const mapsUrl = lat && lng 
-                        ? `https://www.google.com/maps?q=${lat},${lng}`
-                        : null;
+                      const timestamp = parseWatermarkTimestamp(m.watermark_data?.timestamp ?? m.created_at);
+                      const gpsPoint = parseWatermarkGps(m.watermark_data?.gps);
+                      const mapsUrl = gpsPoint ? `https://www.google.com/maps?q=${gpsPoint.latitude},${gpsPoint.longitude}` : null;
                       
                       return (
                         <div key={m.id} className="group flex flex-col gap-2">
@@ -285,7 +325,7 @@ const ReviewInspectionPage: React.FC = () => {
                           </a>
                           <div className="flex flex-col gap-1 px-1">
                             <span className="text-xs text-slate-500">{timestamp}</span>
-                            {mapsUrl ? (
+                            {mapsUrl && gpsPoint ? (
                               <a 
                                 href={mapsUrl} 
                                 target="_blank" 
@@ -293,7 +333,7 @@ const ReviewInspectionPage: React.FC = () => {
                                 className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
                               >
                                 <span>📍</span>
-                                {lat.toFixed(6)}, {lng.toFixed(6)}
+                                {gpsPoint.latitude.toFixed(6)}, {gpsPoint.longitude.toFixed(6)}
                               </a>
                             ) : (
                               <span className="text-xs text-slate-400 flex items-center gap-1">

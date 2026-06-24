@@ -99,7 +99,8 @@ const InspectionManagementPage: React.FC = () => {
     const matchesSearch = searchQuery === '' || 
       (inspection.jobs?.title?.toLowerCase().includes(searchQuery.toLowerCase()) || 
        inspection.equipment?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-       (inspection.inspector && `${inspection.inspector.first_name || ''} ${inspection.inspector.last_name || ''}`.toLowerCase().includes(searchQuery.toLowerCase())));
+       (inspection.inspector && `${inspection.inspector.first_name || ''} ${inspection.inspector.last_name || ''}`.toLowerCase().includes(searchQuery.toLowerCase())) ||
+       (inspection.timesheet_no || '').toLowerCase().includes(searchQuery.toLowerCase()));
       
     const matchesStatus = statusFilter === 'All Status' || inspection.status === statusFilter.toLowerCase();
     return matchesSearch && matchesStatus;
@@ -109,6 +110,7 @@ const InspectionManagementPage: React.FC = () => {
     return filteredInspections.map(inspection => ({
       'Job Title': inspection.jobs?.title || 'N/A',
       'Equipment': inspection.equipment?.name || 'N/A',
+      'Timesheet No.': inspection.timesheet_no || 'N/A',
       'Inspector': inspection.inspector ? `${inspection.inspector.first_name || ''} ${inspection.inspector.last_name || ''}`.trim() : 'Unassigned',
       'Overall Result': inspection.overall_result || 'N/A',
       'Status': inspection.status.toUpperCase(),
@@ -256,6 +258,7 @@ const InspectionManagementPage: React.FC = () => {
             <tr className="bg-slate-50">
               <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">S.No</th>
               <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Job / Equipment</th>
+              <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Timesheet</th>
               <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Inspector</th>
               <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Overall Result</th>
               <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
@@ -275,6 +278,9 @@ const InspectionManagementPage: React.FC = () => {
                     </div>
                     <p className="text-xs text-slate-500">{item.equipment?.name || 'N/A'}</p>
                   </div>
+                </td>
+                <td className="px-6 py-4 text-sm text-slate-600">
+                  {item.timesheet_no || '—'}
                 </td>
                 <td className="px-6 py-4 text-sm text-slate-600">
                   {item.inspector ? `${item.inspector.first_name || ''} ${item.inspector.last_name || ''}`.trim() || 'Unassigned' : 'Unassigned'}
