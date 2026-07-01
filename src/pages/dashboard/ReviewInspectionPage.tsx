@@ -196,6 +196,8 @@ const ReviewInspectionPage: React.FC = () => {
     try {
       const updated = await updateInspection(id, {
         status: 'rejected',
+        approved_at: new Date().toISOString(),
+        approved_by: userProfile?.id,
         rejection_reason: reason,
       });
       setInspection(updated);
@@ -260,7 +262,7 @@ const ReviewInspectionPage: React.FC = () => {
               <p className="text-sm text-slate-500 mt-1">Timesheet No.: <span className="font-medium text-slate-700">{inspection.timesheet_no}</span></p>
             )}
             {inspection?.approver && (
-              <p className="text-sm text-slate-500 mt-1">Approved By: <span className="font-medium text-slate-700">{`${inspection.approver.first_name || ''} ${inspection.approver.last_name || ''}`.trim()}</span></p>
+              <p className="text-sm text-slate-500 mt-1">{inspection.status === 'rejected' ? 'Reviewed By' : 'Approved By'}: <span className="font-medium text-slate-700">{`${inspection.approver.first_name || ''} ${inspection.approver.last_name || ''}`.trim()}</span></p>
             )}
           </div>
         </div>

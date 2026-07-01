@@ -1019,16 +1019,6 @@ export const createNotification = async (notification: Omit<Notification, 'id' |
 
   if (error) throw error;
 
-  // Trigger push notification via Edge Function using the configured Supabase client.
-  try {
-    await supabase.functions.invoke('send-push-notification', {
-      body: { notification_id: data.id },
-    });
-  } catch (err) {
-    console.error('Error triggering push notification:', err);
-    // Don't fail the whole operation if push notification fails.
-  }
-
   return data;
 };
 
