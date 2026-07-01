@@ -124,7 +124,7 @@ const DashboardLayout: React.FC = () => {
         title: 'Operations',
         items: [
           { icon: ClipboardList, label: 'Jobs', path: '/admin/jobs', requiredRole: ['super_admin', 'admin', 'engineer', 'sales', 'coordinator', 'operation_manager'] },
-          { icon: ClipboardCheck, label: 'Inspections', path: '/admin/inspections', requiredRole: ['super_admin', 'admin', 'engineer', 'operation_manager'] },
+          { icon: ClipboardCheck, label: 'Inspections', path: '/admin/inspections', requiredRole: ['super_admin', 'admin', 'engineer', 'operation_manager', 'coordinator'] },
           { icon: GraduationCap, label: 'Trainings', path: '/admin/trainings', requiredRole: ['super_admin', 'admin', 'operation_manager'] },
           { icon: Package, label: 'Assets', path: '/admin/equipment', requiredRole: ['super_admin', 'admin', 'engineer', 'coordinator', 'operation_manager'] },
           { icon: CalendarClock, label: 'Renewals', path: '/admin/renewals', requiredRole: ['super_admin', 'admin', 'sales'] },

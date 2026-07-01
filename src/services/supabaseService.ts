@@ -113,6 +113,9 @@ export interface Job {
     assigned_to?: string;
     trainer_id?: string;
     sales_person_id?: string;
+    site_person_name?: string;
+    site_person_phone?: string;
+    site_person_email?: string;
     created_by?: string;
     title: string;
     description?: string;
@@ -170,9 +173,22 @@ export interface Inspection {
   timesheet_no?: string;
   created_at: string;
   updated_at: string;
-  jobs?: { id: string; title: string; sales_person_id?: string };
+  jobs?: {
+    id: string;
+    title: string;
+    sales_person_id?: string;
+    assigned_to?: string;
+    trainer_id?: string;
+    site_person_name?: string;
+    site_person_phone?: string;
+    site_person_email?: string;
+    sales_person?: { id: string; first_name?: string; last_name?: string; phone?: string; email?: string };
+    assigned_user?: { id: string; first_name?: string; last_name?: string; phone?: string; email?: string };
+    trainer?: { id: string; first_name?: string; last_name?: string; phone?: string; email?: string };
+  };
   equipment?: { id: string; name: string };
   inspector?: { id: string; first_name: string; last_name: string };
+  approver?: { id: string; first_name?: string; last_name?: string; email?: string; phone?: string };
 }
 
 // ==================== COUNTRIES ====================
@@ -513,9 +529,22 @@ export const getInspectionById = async (id: string): Promise<Inspection> => {
     .from('inspections')
     .select(`
       *,
-      jobs (id, title, sales_person_id),
+      jobs (
+        id,
+        title,
+        sales_person_id,
+        assigned_to,
+        trainer_id,
+        site_person_name,
+        site_person_phone,
+        site_person_email,
+        sales_person:users!jobs_sales_person_id_fkey(id, first_name, last_name, phone, email),
+        assigned_user:users!jobs_assigned_to_fkey(id, first_name, last_name, phone, email),
+        trainer:users!jobs_trainer_id_fkey(id, first_name, last_name, phone, email)
+      ),
       equipment (id, name),
-      inspector:users!inspections_inspector_id_fkey (id, first_name, last_name)
+      inspector:users!inspections_inspector_id_fkey (id, first_name, last_name),
+      approver:users!inspections_approved_by_fkey (id, first_name, last_name, email, phone)
     `)
     .eq('id', id)
     .single();
@@ -530,9 +559,22 @@ export const updateInspection = async (id: string, updates: Partial<Inspection>)
     .eq('id', id)
     .select(`
       *,
-      jobs (id, title),
+      jobs (
+        id,
+        title,
+        sales_person_id,
+        assigned_to,
+        trainer_id,
+        site_person_name,
+        site_person_phone,
+        site_person_email,
+        sales_person:users!jobs_sales_person_id_fkey(id, first_name, last_name, phone, email),
+        assigned_user:users!jobs_assigned_to_fkey(id, first_name, last_name, phone, email),
+        trainer:users!jobs_trainer_id_fkey(id, first_name, last_name, phone, email)
+      ),
       equipment (id, name),
-      inspector:users!inspections_inspector_id_fkey (id, first_name, last_name)
+      inspector:users!inspections_inspector_id_fkey (id, first_name, last_name),
+      approver:users!inspections_approved_by_fkey (id, first_name, last_name, email, phone)
     `)
     .single();
   if (error) throw error;
@@ -977,23 +1019,14 @@ export const createNotification = async (notification: Omit<Notification, 'id' |
 
   if (error) throw error;
 
-  // Trigger push notification via Edge Function
+  // Trigger push notification via Edge Function using the configured Supabase client.
   try {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-    const functionUrl = `${supabaseUrl}/functions/v1/send-push-notification`;
-    
-    await fetch(functionUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY || '',
-        'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ''}`,
-      },
-      body: JSON.stringify({ notification_id: data.id }),
+    await supabase.functions.invoke('send-push-notification', {
+      body: { notification_id: data.id },
     });
   } catch (err) {
     console.error('Error triggering push notification:', err);
-    // Don't fail the whole operation if push notification fails
+    // Don't fail the whole operation if push notification fails.
   }
 
   return data;

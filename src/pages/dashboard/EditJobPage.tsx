@@ -59,6 +59,9 @@ const EditJobPage: React.FC = () => {
     site_address: '',
     site_latitude: '',
     site_longitude: '',
+    site_person_name: '',
+    site_person_phone: '',
+    site_person_email: '',
     scheduled_date: '',
     due_date: '',
   });
@@ -151,6 +154,9 @@ const EditJobPage: React.FC = () => {
           site_address: jobData.site_address || '',
           site_latitude: jobData.site_latitude !== undefined && jobData.site_latitude !== null ? String(jobData.site_latitude) : '',
           site_longitude: jobData.site_longitude !== undefined && jobData.site_longitude !== null ? String(jobData.site_longitude) : '',
+          site_person_name: jobData.site_person_name || '',
+          site_person_phone: jobData.site_person_phone || '',
+          site_person_email: jobData.site_person_email || '',
           scheduled_date: jobData.scheduled_date ? isoToDateOnly(jobData.scheduled_date) : '',
           due_date: jobData.due_date ? isoToDateOnly(jobData.due_date) : '',
         });
@@ -193,6 +199,9 @@ const EditJobPage: React.FC = () => {
         type: formData.type,
         site_address: address || undefined,
         ...(newCoords ? { site_latitude: newCoords.lat, site_longitude: newCoords.lng } : {}),
+        site_person_name: formData.site_person_name || undefined,
+        site_person_phone: formData.site_person_phone || undefined,
+        site_person_email: formData.site_person_email || undefined,
         scheduled_date: dateOnlyToISO(formData.scheduled_date),
         due_date: dateOnlyToISO(formData.due_date),
       };
@@ -400,6 +409,36 @@ const EditJobPage: React.FC = () => {
                   className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
                   placeholder="Enter full site address"
                 />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">Site Person Name</label>
+                  <input
+                    value={formData.site_person_name}
+                    onChange={(e) => setFormData({ ...formData, site_person_name: e.target.value })}
+                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+                    placeholder="John Smith"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">Site Person Phone</label>
+                  <input
+                    value={formData.site_person_phone}
+                    onChange={(e) => setFormData({ ...formData, site_person_phone: e.target.value })}
+                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+                    placeholder="+966 ..."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">Site Person Email</label>
+                  <input
+                    type="email"
+                    value={formData.site_person_email}
+                    onChange={(e) => setFormData({ ...formData, site_person_email: e.target.value })}
+                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+                    placeholder="person@site.com"
+                  />
+                </div>
               </div>
               <div className="space-y-3">
                 <div className="text-xs font-semibold text-slate-600 mb-2">Click on the map to set the exact coordinates</div>

@@ -130,8 +130,11 @@ const ReviewInspectionPage: React.FC = () => {
     return 'bg-slate-100 text-slate-600 border-slate-200';
   }, [inspection]);
 
+  const isDecisionLocked = !!inspection && (inspection.status === 'approved' || inspection.status === 'rejected' || isApproving || isRejecting);
+
   const handleApprove = async () => {
-    if (!id || !userProfile?.id) return;
+    if (!id || !userProfile?.id || !inspection || isDecisionLocked) return;
+    setError(null);
     setIsApproving(true);
     try {
       const updated = await updateInspection(id, {
@@ -180,12 +183,20 @@ const ReviewInspectionPage: React.FC = () => {
   };
 
   const handleReject = async () => {
-    if (!id || !inspection?.job_id) return;
+    if (!id || !inspection?.job_id || isDecisionLocked) return;
+
+    const reason = reviewNote.trim();
+    if (!reason) {
+      setError('Please add a reason for rejection before submitting.');
+      return;
+    }
+
+    setError(null);
     setIsRejecting(true);
     try {
       const updated = await updateInspection(id, {
         status: 'rejected',
-        rejection_reason: reviewNote || 'Rejected',
+        rejection_reason: reason,
       });
       setInspection(updated);
 
@@ -245,6 +256,12 @@ const ReviewInspectionPage: React.FC = () => {
             <p className="text-slate-500">
               Inspection: {inspection?.id || id} • Inspector: {inspectorName}
             </p>
+            {inspection?.timesheet_no && (
+              <p className="text-sm text-slate-500 mt-1">Timesheet No.: <span className="font-medium text-slate-700">{inspection.timesheet_no}</span></p>
+            )}
+            {inspection?.approver && (
+              <p className="text-sm text-slate-500 mt-1">Approved By: <span className="font-medium text-slate-700">{`${inspection.approver.first_name || ''} ${inspection.approver.last_name || ''}`.trim()}</span></p>
+            )}
           </div>
         </div>
 
@@ -284,10 +301,29 @@ const ReviewInspectionPage: React.FC = () => {
             </div>
             <div className="p-0">
               <div className="p-6">
-                <div className="text-sm text-slate-700 whitespace-pre-wrap">{inspection?.notes || 'No notes provided.'}</div>
+                    <div className="text-sm text-slate-700 whitespace-pre-wrap">{inspection?.notes || 'No notes provided.'}</div>
               </div>
             </div>
           </div>
+
+              {/* Job & Contacts */}
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                  <h2 className="font-bold text-slate-900 flex items-center gap-2">
+                    <User className="h-5 w-5 text-slate-400" />
+                    Job & Contacts
+                  </h2>
+                </div>
+                <div className="p-6 space-y-3">
+                  <div className="text-sm text-slate-700">
+                    <div><span className="text-slate-500">Site Contact: </span><span className="font-medium">{inspection?.jobs?.site_person_name || '—'}</span></div>
+                    {inspection?.jobs?.site_person_phone && <div className="text-sm text-slate-500">Phone: <span className="font-medium text-slate-700">{inspection.jobs.site_person_phone}</span></div>}
+                    {inspection?.jobs?.site_person_email && <div className="text-sm text-slate-500">Email: <span className="font-medium text-slate-700">{inspection.jobs.site_person_email}</span></div>}
+                    <div className="mt-2"><span className="text-slate-500">Sales Person: </span><span className="font-medium">{inspection?.jobs?.sales_person ? `${inspection.jobs.sales_person.first_name || ''} ${inspection.jobs.sales_person.last_name || ''}`.trim() : '—'}</span></div>
+                    <div className="mt-2"><span className="text-slate-500">Engineer/Trainer: </span><span className="font-medium">{inspection?.jobs?.assigned_user ? `${inspection.jobs.assigned_user.first_name || ''} ${inspection.jobs.assigned_user.last_name || ''}`.trim() : (inspection?.jobs?.trainer ? `${inspection.jobs.trainer.first_name || ''} ${inspection.jobs.trainer.last_name || ''}`.trim() : '—')}</span></div>
+                  </div>
+                </div>
+              </div>
 
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
@@ -349,6 +385,27 @@ const ReviewInspectionPage: React.FC = () => {
               )}
             </div>
           </div>
+
+          {/* Signature (if any) */}
+          {(() => {
+            const sig = media.find((m) => (m.file_type && m.file_type.toLowerCase().includes('signature')) || (m.file_name && m.file_name.toLowerCase().includes('signature')));
+            if (!sig) return null;
+            return (
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
+                  <h2 className="font-bold text-slate-900 flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-slate-400" />
+                    Signature
+                  </h2>
+                </div>
+                <div className="p-6">
+                  <a href={sig.file_url} target="_blank" rel="noreferrer">
+                    <img src={sig.file_url} alt={sig.file_name} className="max-h-48 object-contain" />
+                  </a>
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Right - Decision Panel */}
@@ -367,16 +424,25 @@ const ReviewInspectionPage: React.FC = () => {
                 <textarea 
                   rows={4}
                   value={reviewNote}
-                  onChange={(e) => setReviewNote(e.target.value)}
+                  onChange={(e) => {
+                    setReviewNote(e.target.value);
+                    if (error) setError(null);
+                  }}
                   placeholder="Add feedback or reasons for rejection..."
-                  className="w-full px-4 py-3 bg-slate-50 border-transparent rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-primary-500 outline-none transition-all resize-none"
+                  className={`w-full px-4 py-3 bg-slate-50 border rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-primary-500 outline-none transition-all resize-none ${error ? 'border-rose-300' : 'border-transparent'}`}
                 />
               </div>
+
+              {error && (
+                <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                  {error}
+                </div>
+              )}
 
               <div className="space-y-3">
                 <button
                   onClick={handleApprove}
-                  disabled={isApproving || isRejecting}
+                  disabled={isDecisionLocked}
                   className="w-full py-3 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
                   {isApproving ? (
@@ -393,7 +459,7 @@ const ReviewInspectionPage: React.FC = () => {
                 </button>
                 <button
                   onClick={handleReject}
-                  disabled={isApproving || isRejecting}
+                  disabled={isDecisionLocked}
                   className="w-full py-3 bg-rose-50 text-rose-600 rounded-xl text-sm font-bold hover:bg-rose-100 transition-all flex items-center justify-center gap-2 border border-rose-100 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
                   {isRejecting ? (

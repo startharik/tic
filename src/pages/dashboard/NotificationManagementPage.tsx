@@ -25,6 +25,7 @@ const NotificationManagementPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [showSendModal, setShowSendModal] = useState(false);
+  const [testRecipientId, setTestRecipientId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [newNotification, setNewNotification] = useState({
     user_id: '',
@@ -88,6 +89,34 @@ const NotificationManagementPage: React.FC = () => {
     }
   };
 
+  const handleSendTestNotification = async () => {
+    try {
+      setError(null);
+      setSending(true);
+
+      const targetUserId = testRecipientId || newNotification.user_id || users[0]?.id;
+      if (!targetUserId) {
+        setError('Please select a user to receive the test notification.');
+        return;
+      }
+
+      await createNotification({
+        user_id: targetUserId,
+        title: 'Test Push Notification',
+        message: 'This is a test notification to verify push delivery.',
+        type: 'info',
+        is_read: false,
+      });
+
+      await fetchData();
+    } catch (err: any) {
+      console.error('Error sending test notification:', err);
+      setError(err?.message || 'Failed to send test notification');
+    } finally {
+      setSending(false);
+    }
+  };
+
   const getIconForType = (type: string) => {
     if (type === 'success') return CheckCircle;
     if (type === 'error') return AlertCircle;
@@ -131,7 +160,30 @@ const NotificationManagementPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-900">Notification Center</h1>
           <p className="text-slate-500 mt-1">Manage notifications and send new alerts.</p>
         </div>
-        <div className="flex items-center space-x-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 text-sm text-slate-600">
+            <span className="font-medium">Test recipient</span>
+            <select
+              value={testRecipientId}
+              onChange={(e) => setTestRecipientId(e.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-primary-500 focus:outline-none"
+            >
+              <option value="">Select user</option>
+              {users.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.first_name || user.last_name ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : user.email || user.id}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button 
+            className="flex items-center space-x-2 px-4 py-2 border border-slate-200 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 transition-all disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={handleSendTestNotification}
+            disabled={sending || !testRecipientId}
+          >
+            <Smartphone className="h-4 w-4" />
+            <span>Send Test Push</span>
+          </button>
           <button 
             className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-bold hover:bg-primary-700 shadow-lg shadow-primary-200 transition-all"
             onClick={() => setShowSendModal(true)}

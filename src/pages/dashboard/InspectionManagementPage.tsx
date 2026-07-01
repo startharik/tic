@@ -49,8 +49,10 @@ const InspectionManagementPage: React.FC = () => {
   }, []);
 
   const handleApprove = async (inspectionId: string) => {
-    setSelectedInspection(inspections.find(i => i.id === inspectionId) || null);
-    if (!userProfile?.id || !selectedInspection) return;
+    const targetInspection = inspections.find(i => i.id === inspectionId);
+    if (!userProfile?.id || !targetInspection || targetInspection.status === 'approved' || targetInspection.status === 'rejected') return;
+
+    setSelectedInspection(targetInspection);
     
     try {
       await updateInspection(inspectionId, {
@@ -68,10 +70,15 @@ const InspectionManagementPage: React.FC = () => {
 
   const handleReject = async () => {
     if (!selectedInspection || !userProfile?.id) return;
+    const reason = rejectionReason.trim();
+    if (!reason) {
+      alert('Please enter a reason for rejection before submitting.');
+      return;
+    }
     try {
       await updateInspection(selectedInspection.id, {
         status: 'rejected',
-        rejection_reason: rejectionReason
+        rejection_reason: reason
       });
       setShowRejectModal(false);
       setRejectionReason('');
@@ -315,7 +322,7 @@ const InspectionManagementPage: React.FC = () => {
                     >
                       <Eye className="h-4 w-4" />
                     </button>
-                    {item.status === 'submitted' && (hasPermission('*') || userProfile?.role === 'admin' || userProfile?.role === 'super_admin') && (
+                    {item.status === 'submitted' && (hasPermission('write:inspections') || userProfile?.role === 'admin' || userProfile?.role === 'super_admin' || userProfile?.role === 'coordinator') && (
                       <>
                         <button
                           onClick={() => handleApprove(item.id)}
