@@ -6,7 +6,8 @@ import {
   MapPin,
   User as UserIcon,
   Info,
-  Loader2
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getClients, getUsers, getBranches, getEquipment, getJob, updateJob, geocodeAddressNominatim, createNotification } from '../../services/supabaseService';
@@ -44,6 +45,7 @@ const EditJobPage: React.FC = () => {
   const [initialAssignedTo, setInitialAssignedTo] = useState<string>('');
   const [initialTrainerId, setInitialTrainerId] = useState<string>('');
   const [initialSalesPersonId, setInitialSalesPersonId] = useState<string>('');
+  const [formErrors, setFormErrors] = useState<{ jo_number?: string; task_number?: string }>({});
   const [formData, setFormData] = useState({
     client_id: '',
     branch_id: '',
@@ -56,6 +58,9 @@ const EditJobPage: React.FC = () => {
     status: 'assigned' as string,
     priority: 'medium' as string,
     type: 'inspection' as string,
+    service_type: 'accredited' as string,
+    jo_number: '',
+    task_number: '',
     site_address: '',
     site_latitude: '',
     site_longitude: '',
@@ -151,6 +156,9 @@ const EditJobPage: React.FC = () => {
           status: jobData.status as any,
           priority: jobData.priority as any,
           type: jobData.type || 'inspection',
+          service_type: jobData.service_type || 'accredited',
+          jo_number: jobData.jo_number || '',
+          task_number: jobData.task_number || '',
           site_address: jobData.site_address || '',
           site_latitude: jobData.site_latitude !== undefined && jobData.site_latitude !== null ? String(jobData.site_latitude) : '',
           site_longitude: jobData.site_longitude !== undefined && jobData.site_longitude !== null ? String(jobData.site_longitude) : '',
@@ -171,6 +179,15 @@ const EditJobPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const errors: { jo_number?: string; task_number?: string } = {};
+    if (!formData.jo_number.trim()) errors.jo_number = 'JO Number is required';
+    if (!formData.task_number.trim()) errors.task_number = 'Task Number is required';
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    setFormErrors({});
     try {
       setLoading(true);
       if (!jobId) throw new Error('No job ID provided');
@@ -197,6 +214,9 @@ const EditJobPage: React.FC = () => {
         status: formData.status,
         priority: formData.priority,
         type: formData.type,
+        service_type: formData.service_type,
+        jo_number: formData.jo_number.trim(),
+        task_number: formData.task_number.trim(),
         site_address: address || undefined,
         ...(newCoords ? { site_latitude: newCoords.lat, site_longitude: newCoords.lng } : {}),
         site_person_name: formData.site_person_name || undefined,
@@ -351,6 +371,18 @@ const EditJobPage: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">Type of Service</label>
+                  <select
+                    value={formData.service_type}
+                    onChange={(e) => setFormData({ ...formData, service_type: e.target.value })}
+                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+                  >
+                    <option value="accredited">Accredited</option>
+                    <option value="no_accredited">No Accredited</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700">Asset</label>
                   <select
                     value={formData.equipment_id}
@@ -378,6 +410,44 @@ const EditJobPage: React.FC = () => {
                     placeholder="Enter job title"
                   />
                 </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700 flex items-center gap-1">
+                    JO Number <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    required
+                    value={formData.jo_number}
+                    onChange={(e) => {
+                      setFormData({ ...formData, jo_number: e.target.value });
+                      if (formErrors.jo_number) setFormErrors((p) => ({ ...p, jo_number: undefined }));
+                    }}
+                    className={`w-full px-4 py-2 bg-slate-50 border rounded-lg focus:ring-2 focus:ring-primary-500 outline-none ${formErrors.jo_number ? 'border-rose-400 focus:ring-rose-200' : 'border-slate-200'}`}
+                    placeholder="Enter JO number"
+                  />
+                  {formErrors.jo_number && (
+                    <p className="text-xs text-rose-600">{formErrors.jo_number}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700 flex items-center gap-1">
+                    Task Number <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    required
+                    value={formData.task_number}
+                    onChange={(e) => {
+                      setFormData({ ...formData, task_number: e.target.value });
+                      if (formErrors.task_number) setFormErrors((p) => ({ ...p, task_number: undefined }));
+                    }}
+                    className={`w-full px-4 py-2 bg-slate-50 border rounded-lg focus:ring-2 focus:ring-primary-500 outline-none ${formErrors.task_number ? 'border-rose-400 focus:ring-rose-200' : 'border-slate-200'}`}
+                    placeholder="Enter Task number"
+                  />
+                  {formErrors.task_number && (
+                    <p className="text-xs text-rose-600">{formErrors.task_number}</p>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -390,6 +460,16 @@ const EditJobPage: React.FC = () => {
                   placeholder="Provide detailed description of the job..."
                 />
               </div>
+
+              {(formErrors.jo_number || formErrors.task_number) && (
+                <div className="p-4 bg-rose-50 border border-rose-100 rounded-xl flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-rose-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-rose-800">Missing required coordinator fields</p>
+                    <p className="text-xs text-rose-700 mt-1">Both JO Number and Task Number must be filled before the job can be saved.</p>
+                  </div>
+                </div>
+              )}
             </div>
           </section>
 

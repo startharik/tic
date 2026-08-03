@@ -149,7 +149,7 @@ const TrainingManagementPage: React.FC = () => {
               <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Trainer</th>
               <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Overall Result</th>
               <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-              <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Created At</th>
+              <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Submitted At</th>
               <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
@@ -189,7 +189,11 @@ const TrainingManagementPage: React.FC = () => {
                   </span>
                 </td>
                 <td className="px-6 py-4 text-sm text-slate-500">
-                  {new Date(item.created_at).toLocaleDateString()}
+                  {item.submitted_at
+                    ? new Date(item.submitted_at).toLocaleString()
+                    : item.created_at
+                      ? new Date(item.created_at).toLocaleString()
+                      : '—'}
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex items-center space-x-2">

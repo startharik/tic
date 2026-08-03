@@ -15,6 +15,8 @@ import {
   createNotification, 
   markNotificationRead, 
   deleteNotification,
+  markAllNotificationsRead,
+  deleteReadNotifications,
   type Notification
 } from '../../services/supabaseService';
 import { getUsers, type User } from '../../services/supabaseService';
@@ -114,6 +116,54 @@ const NotificationManagementPage: React.FC = () => {
       setError(err?.message || 'Failed to send test notification');
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleMarkRead = async (id: string) => {
+    const original = [...notifications];
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+    try {
+      await markNotificationRead(id);
+    } catch (err: any) {
+      console.error(err);
+      setNotifications(original);
+      setError(err?.message || 'Failed to mark as read');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    const original = [...notifications];
+    setNotifications(prev => prev.filter(n => n.id !== id));
+    try {
+      await deleteNotification(id);
+    } catch (err: any) {
+      console.error(err);
+      setNotifications(original);
+      setError(err?.message || 'Failed to delete notification');
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    const original = [...notifications];
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    try {
+      await markAllNotificationsRead();
+    } catch (err: any) {
+      console.error(err);
+      setNotifications(original);
+      setError(err?.message || 'Failed to mark all as read');
+    }
+  };
+
+  const handleClearRead = async () => {
+    const original = [...notifications];
+    setNotifications(prev => prev.filter(n => !n.is_read));
+    try {
+      await deleteReadNotifications();
+    } catch (err: any) {
+      console.error(err);
+      setNotifications(original);
+      setError(err?.message || 'Failed to clear read notifications');
     }
   };
 
@@ -223,8 +273,34 @@ const NotificationManagementPage: React.FC = () => {
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-bold text-slate-900">Recent Notifications</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                notifications.some(n => !n.is_read)
+                  ? 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
+                  : 'text-slate-400 bg-slate-50 cursor-not-allowed'
+              }`}
+              onClick={handleMarkAllRead}
+              disabled={!notifications.some(n => !n.is_read)}
+            >
+              <CheckCircle className="h-4 w-4" />
+              Mark All Read
+            </button>
+            <button
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                notifications.some(n => n.is_read)
+                  ? 'text-rose-700 bg-rose-50 hover:bg-rose-100'
+                  : 'text-slate-400 bg-slate-50 cursor-not-allowed'
+              }`}
+              onClick={handleClearRead}
+              disabled={!notifications.some(n => n.is_read)}
+            >
+              <Trash2 className="h-4 w-4" />
+              Clear Read
+            </button>
+          </div>
         </div>
         <div className="divide-y divide-slate-100">
           {notifications.map((notif) => {
@@ -256,15 +332,17 @@ const NotificationManagementPage: React.FC = () => {
                 <div className="flex items-center gap-1">
                   {!notif.is_read && (
                     <button 
-                      className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded"
-                      onClick={() => markNotificationRead(notif.id).then(fetchData)}
+                      className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
+                      title="Mark as read"
+                      onClick={() => handleMarkRead(notif.id)}
                     >
                       <CheckCircle className="h-4 w-4" />
                     </button>
                   )}
                   <button 
-                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
-                    onClick={() => deleteNotification(notif.id).then(fetchData)}
+                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                    title="Delete"
+                    onClick={() => handleDelete(notif.id)}
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>

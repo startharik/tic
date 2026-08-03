@@ -25,11 +25,12 @@ import {
   Image,
   Megaphone,
   CalendarDays,
-  CheckCircle
+  CheckCircle,
+  Trash2
 } from 'lucide-react';
 import logo from '../assets/logo.png';
 import { useAuth } from '../contexts/AuthContext';
-import { getNotifications, markNotificationRead, type Notification } from '../services/supabaseService';
+import { getNotifications, markNotificationRead, markAllNotificationsRead, deleteNotification, deleteReadNotifications, type Notification } from '../services/supabaseService';
 
 type MenuItem = {
   icon: any;
@@ -102,6 +103,50 @@ const DashboardLayout: React.FC = () => {
       fetchNotifications();
     }
   }, [user?.id]);
+
+  const handleMarkReadNotif = async (id: string) => {
+    const original = [...notifications];
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+    try {
+      await markNotificationRead(id);
+    } catch (err) {
+      console.error(err);
+      setNotifications(original);
+    }
+  };
+
+  const handleDeleteNotif = async (id: string) => {
+    const original = [...notifications];
+    setNotifications(prev => prev.filter(n => n.id !== id));
+    try {
+      await deleteNotification(id);
+    } catch (err) {
+      console.error(err);
+      setNotifications(original);
+    }
+  };
+
+  const handleMarkAllReadNotifs = async () => {
+    const original = [...notifications];
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    try {
+      await markAllNotificationsRead(user?.id);
+    } catch (err) {
+      console.error(err);
+      setNotifications(original);
+    }
+  };
+
+  const handleClearReadNotifs = async () => {
+    const original = [...notifications];
+    setNotifications(prev => prev.filter(n => !n.is_read));
+    try {
+      await deleteReadNotifications(user?.id);
+    } catch (err) {
+      console.error(err);
+      setNotifications(original);
+    }
+  };
 
   const isPathActive = (path: string) => {
     if (path === '/admin') return location.pathname === '/admin';
@@ -342,6 +387,33 @@ const DashboardLayout: React.FC = () => {
                     <span className="text-xs text-slate-400 font-medium">{notifications.filter(n => !n.is_read).length} unread</span>
                   </div>
                   
+                  <div className="px-3 py-2 border-b border-slate-100 flex items-center gap-2">
+                    <button
+                      onClick={handleMarkAllReadNotifs}
+                      disabled={!notifications.some(n => !n.is_read)}
+                      className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                        notifications.some(n => !n.is_read)
+                          ? 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
+                          : 'text-slate-400 bg-slate-50 cursor-not-allowed'
+                      }`}
+                    >
+                      <CheckCircle className="h-3.5 w-3.5" />
+                      Mark all read
+                    </button>
+                    <button
+                      onClick={handleClearReadNotifs}
+                      disabled={!notifications.some(n => n.is_read)}
+                      className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                        notifications.some(n => n.is_read)
+                          ? 'text-rose-700 bg-rose-50 hover:bg-rose-100'
+                          : 'text-slate-400 bg-slate-50 cursor-not-allowed'
+                      }`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Clear read
+                    </button>
+                  </div>
+                  
                   <div className="max-h-96 overflow-y-auto">
                     {notifLoading ? (
                       <div className="p-6 flex justify-center">
@@ -356,7 +428,7 @@ const DashboardLayout: React.FC = () => {
                           className={`p-4 border-b border-slate-100 hover:bg-slate-50 ${!notif.is_read ? 'bg-blue-50' : ''}`}
                         >
                           <div className="flex items-start gap-3">
-                            <div className={`p-2 rounded-lg ${
+                            <div className={`p-2 rounded-lg flex-shrink-0 ${
                               notif.type === 'error' ? 'bg-red-100 text-red-600' 
                               : notif.type === 'warning' ? 'bg-amber-100 text-amber-600' 
                               : notif.type === 'success' ? 'bg-emerald-100 text-emerald-600' 
@@ -368,24 +440,31 @@ const DashboardLayout: React.FC = () => {
                                 <CheckCircle className="w-5 h-5" />
                               )}
                             </div>
-                            <div className="flex-1">
+                            <div className="flex-1 min-w-0">
                               <h4 className="text-sm font-semibold text-slate-900">{notif.title}</h4>
-                              <p className="text-xs text-slate-600 mt-1">{notif.message}</p>
+                              <p className="text-xs text-slate-600 mt-1 break-words">{notif.message}</p>
                               <p className="text-[10px] text-slate-400 mt-1">
                                 {new Date(notif.created_at).toLocaleString()}
                               </p>
                             </div>
-                            {!notif.is_read && (
-                              <button 
-                                onClick={async () => {
-                                  await markNotificationRead(notif.id);
-                                  await fetchNotifications();
-                                }} 
-                                className="text-xs text-primary-600 font-medium hover:underline"
+                            <div className="flex flex-col items-end gap-1 flex-shrink-0 ml-1">
+                              {!notif.is_read && (
+                                <button 
+                                  onClick={() => handleMarkReadNotif(notif.id)} 
+                                  className="text-[10px] text-emerald-600 font-medium hover:underline px-1"
+                                  title="Mark as read"
+                                >
+                                  Mark read
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleDeleteNotif(notif.id)}
+                                className="text-slate-400 hover:text-rose-600 p-0.5 rounded hover:bg-rose-50 transition-colors"
+                                title="Delete notification"
                               >
-                                Mark read
+                                <Trash2 className="h-3 w-3" />
                               </button>
-                            )}
+                            </div>
                           </div>
                         </div>
                       ))

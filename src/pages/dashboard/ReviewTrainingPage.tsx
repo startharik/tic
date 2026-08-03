@@ -93,11 +93,11 @@ const ReviewTrainingPage: React.FC = () => {
 
         const { data: mediaRows, error: mediaError } = await supabase
           .from('media')
-          .select('id,file_url,file_type,file_name,watermark_data,created_at')
-          .eq('training_id', id)
+          .select('id,file_url,file_type,file_name,watermark_data,created_at,training_id,job_id')
+          .or(`training_id.eq.${id},job_id.eq.${data?.job_id}`)
           .order('created_at', { ascending: false });
         if (mediaError) throw mediaError;
-        setMedia(mediaRows || []);
+        setMedia((mediaRows || []).filter((row: any) => row.training_id === id || row.job_id === data?.job_id));
       } catch (e: any) {
         setError(e?.message || 'Failed to load training');
       } finally {
@@ -234,6 +234,26 @@ const ReviewTrainingPage: React.FC = () => {
             <p className="text-slate-500">
               Training: {training?.id || id} • Trainer: {trainerName}
             </p>
+            {(training?.submitted_at || training?.created_at) && (training?.status === 'submitted' || training?.status === 'approved' || training?.status === 'rejected') && (
+              <p className="text-sm text-slate-500 mt-1">
+                Submitted At: <span className="font-medium text-slate-700">{new Date(training.submitted_at || training.created_at).toLocaleString()}</span>
+              </p>
+            )}
+            {training?.approver && (
+              <p className="text-sm text-slate-500 mt-1">
+                {training.status === 'rejected' ? 'Rejected By' : 'Approved By'}: <span className="font-medium text-slate-700">{`${training.approver.first_name || ''} ${training.approver.last_name || ''}`.trim()}</span>
+              </p>
+            )}
+            {(training?.status === 'approved' || training?.status === 'rejected') && training?.approved_at && (
+              <p className="text-sm text-slate-500 mt-1">
+                {training.status === 'rejected' ? 'Rejected At' : 'Approved At'}: <span className="font-medium text-slate-700">{new Date(training.approved_at).toLocaleString()}</span>
+              </p>
+            )}
+            {training?.status === 'rejected' && training?.rejection_reason && (
+              <p className="text-sm text-rose-600 mt-1 bg-rose-50 px-2 py-1 rounded-lg inline-block">
+                Rejection Reason: {training.rejection_reason}
+              </p>
+            )}
           </div>
         </div>
       </div>

@@ -93,11 +93,11 @@ const ReviewInspectionPage: React.FC = () => {
 
         const { data: mediaRows, error: mediaError } = await supabase
           .from('media')
-          .select('id,file_url,file_type,file_name,watermark_data,created_at')
-          .eq('inspection_id', id)
+          .select('id,file_url,file_type,file_name,watermark_data,created_at,inspection_id,job_id')
+          .or(`inspection_id.eq.${id},job_id.eq.${data?.job_id}`)
           .order('created_at', { ascending: false });
         if (mediaError) throw mediaError;
-        setMedia(mediaRows || []);
+        setMedia((mediaRows || []).filter((row: any) => row.inspection_id === id || row.job_id === data?.job_id));
       } catch (e: any) {
         setError(e?.message || 'Failed to load inspection');
       } finally {
@@ -261,8 +261,25 @@ const ReviewInspectionPage: React.FC = () => {
             {inspection?.timesheet_no && (
               <p className="text-sm text-slate-500 mt-1">Timesheet No.: <span className="font-medium text-slate-700">{inspection.timesheet_no}</span></p>
             )}
+            {(inspection?.submitted_at || inspection?.created_at) && (inspection?.status === 'submitted' || inspection?.status === 'approved' || inspection?.status === 'rejected') && (
+              <p className="text-sm text-slate-500 mt-1">
+                Submitted At: <span className="font-medium text-slate-700">{new Date(inspection.submitted_at || inspection.created_at).toLocaleString()}</span>
+              </p>
+            )}
             {inspection?.approver && (
-              <p className="text-sm text-slate-500 mt-1">{inspection.status === 'rejected' ? 'Reviewed By' : 'Approved By'}: <span className="font-medium text-slate-700">{`${inspection.approver.first_name || ''} ${inspection.approver.last_name || ''}`.trim()}</span></p>
+              <p className="text-sm text-slate-500 mt-1">
+                {inspection.status === 'rejected' ? 'Rejected By' : 'Approved By'}: <span className="font-medium text-slate-700">{`${inspection.approver.first_name || ''} ${inspection.approver.last_name || ''}`.trim()}</span>
+              </p>
+            )}
+            {(inspection?.status === 'approved' || inspection?.status === 'rejected') && inspection?.approved_at && (
+              <p className="text-sm text-slate-500 mt-1">
+                {inspection.status === 'rejected' ? 'Rejected At' : 'Approved At'}: <span className="font-medium text-slate-700">{new Date(inspection.approved_at).toLocaleString()}</span>
+              </p>
+            )}
+            {inspection?.status === 'rejected' && inspection?.rejection_reason && (
+              <p className="text-sm text-rose-600 mt-1 bg-rose-50 px-2 py-1 rounded-lg inline-block">
+                Rejection Reason: {inspection.rejection_reason}
+              </p>
             )}
           </div>
         </div>

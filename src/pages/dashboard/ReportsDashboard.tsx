@@ -432,9 +432,22 @@ const ReportsDashboard: React.FC = () => {
       reportType === 'Users Report' || reportType === 'Engineers Report'
         ? userReportRows
         : reportType === 'Jobs Report'
-          ? jobs
+          ? jobs.map((job) => ({
+              ...job,
+              branch_name: job.branches?.name || 'N/A',
+              sales_person_name: job.sales_person ? `${job.sales_person.first_name || ''} ${job.sales_person.last_name || ''}`.trim() || 'N/A' : 'N/A',
+              jo_number: job.jo_number || 'N/A',
+              task_number: job.task_number || 'N/A',
+            }))
           : reportType === 'Inspection Approvals'
-            ? inspections
+            ? inspections.map((inspection) => ({
+                ...inspection,
+                branch_name: inspection.jobs?.branches?.name || 'N/A',
+                sales_person_name: inspection.jobs?.sales_person ? `${inspection.jobs.sales_person.first_name || ''} ${inspection.jobs.sales_person.last_name || ''}`.trim() || 'N/A' : 'N/A',
+                jo_number: inspection.jobs?.jo_number || (inspection as Inspection & { jobs?: { id?: string; jo_number?: string; task_number?: string } }).jobs?.id || 'N/A',
+                task_number: inspection.jobs?.task_number || 'N/A',
+                timesheet_no: inspection.timesheet_no || 'N/A',
+              }))
             : reportType === 'Branches Report'
               ? branchRows
               : reportType === 'Documents Report'

@@ -225,6 +225,28 @@ const JobDetailsPage: React.FC = () => {
               </div>
               <div className="space-y-4">
                 <div className="flex items-start space-x-3">
+                  <div className="mt-1 p-2 bg-amber-50 rounded-lg">
+                    <FileText className="h-4 w-4 text-amber-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-slate-500 uppercase">JO Number</p>
+                    <p className="text-sm font-semibold text-slate-900 font-mono">
+                      {job.jo_number || <span className="text-slate-400 font-sans">Not assigned</span>}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <div className="mt-1 p-2 bg-teal-50 rounded-lg">
+                    <FileText className="h-4 w-4 text-teal-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-slate-500 uppercase">Task Number</p>
+                    <p className="text-sm font-semibold text-slate-900 font-mono">
+                      {job.task_number || <span className="text-slate-400 font-sans">Not assigned</span>}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-3">
                   <div className="mt-1 p-2 bg-cyan-50 rounded-lg">
                     <FileText className="h-4 w-4 text-cyan-600" />
                   </div>

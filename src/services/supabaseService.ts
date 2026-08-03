@@ -122,6 +122,9 @@ export interface Job {
     status: string;
     priority: string;
     type?: string; // inspection, training
+    service_type?: string; // accredited, no_accredited
+    jo_number?: string;
+    task_number?: string;
     site_address?: string;
     site_latitude?: number;
     site_longitude?: number;
@@ -156,6 +159,7 @@ export interface Training {
   jobs?: { id: string; title: string; sales_person_id?: string };
   equipment?: { id: string; name: string };
   trainer?: { id: string; first_name: string; last_name: string };
+  approver?: { id: string; first_name?: string; last_name?: string; email?: string; phone?: string };
 }
 
 export interface Inspection {
@@ -176,9 +180,12 @@ export interface Inspection {
   jobs?: {
     id: string;
     title: string;
+    jo_number?: string;
+    task_number?: string;
     sales_person_id?: string;
     assigned_to?: string;
     trainer_id?: string;
+    branches?: { id?: string; name?: string };
     site_person_name?: string;
     site_person_phone?: string;
     site_person_email?: string;
@@ -515,7 +522,20 @@ export const getInspections = async (): Promise<Inspection[]> => {
     .from('inspections')
     .select(`
       *,
-      jobs (id, title),
+      jobs (
+        id,
+        title,
+        jo_number,
+        task_number,
+        sales_person_id,
+        assigned_to,
+        trainer_id,
+        site_person_name,
+        site_person_phone,
+        site_person_email,
+        branches (id, name),
+        sales_person:users!jobs_sales_person_id_fkey (id, first_name, last_name)
+      ),
       equipment (id, name),
       inspector:users!inspections_inspector_id_fkey (id, first_name, last_name)
     `)
@@ -602,7 +622,8 @@ export const getTrainingById = async (id: string): Promise<Training> => {
       *,
       jobs (id, title, sales_person_id),
       equipment (id, name),
-      trainer:users!trainings_trainer_id_fkey (id, first_name, last_name)
+      trainer:users!trainings_trainer_id_fkey (id, first_name, last_name),
+      approver:users!trainings_approved_by_fkey (id, first_name, last_name, email, phone)
     `)
     .eq('id', id)
     .single();
@@ -619,7 +640,8 @@ export const updateTraining = async (id: string, updates: Partial<Training>): Pr
       *,
       jobs (id, title),
       equipment (id, name),
-      trainer:users!trainings_trainer_id_fkey (id, first_name, last_name)
+      trainer:users!trainings_trainer_id_fkey (id, first_name, last_name),
+      approver:users!trainings_approved_by_fkey (id, first_name, last_name, email, phone)
     `)
     .single();
   if (error) throw error;
@@ -1032,6 +1054,30 @@ export const markNotificationRead = async (id: string): Promise<void> => {
 
 export const deleteNotification = async (id: string): Promise<void> => {
   const { error } = await supabase.from('notifications').delete().eq('id', id);
+  if (error) throw error;
+};
+
+export const markAllNotificationsRead = async (userId?: string): Promise<void> => {
+  let query = supabase
+    .from('notifications')
+    .update({ is_read: true })
+    .eq('is_read', false);
+  if (userId) {
+    query = query.eq('user_id', userId);
+  }
+  const { error } = await query;
+  if (error) throw error;
+};
+
+export const deleteReadNotifications = async (userId?: string): Promise<void> => {
+  let query = supabase
+    .from('notifications')
+    .delete()
+    .eq('is_read', true);
+  if (userId) {
+    query = query.eq('user_id', userId);
+  }
+  const { error } = await query;
   if (error) throw error;
 };
 

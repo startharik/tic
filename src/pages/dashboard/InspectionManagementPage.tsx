@@ -121,7 +121,9 @@ const InspectionManagementPage: React.FC = () => {
       'Inspector': inspection.inspector ? `${inspection.inspector.first_name || ''} ${inspection.inspector.last_name || ''}`.trim() : 'Unassigned',
       'Overall Result': inspection.overall_result || 'N/A',
       'Status': inspection.status.toUpperCase(),
-      'Created At': new Date(inspection.created_at).toLocaleDateString(),
+      'Created At': new Date(inspection.created_at).toLocaleString(),
+      'Submitted At': inspection.submitted_at ? new Date(inspection.submitted_at).toLocaleString() : 'N/A',
+      'Approved At': inspection.approved_at ? new Date(inspection.approved_at).toLocaleString() : 'N/A',
       'Notes': inspection.notes || 'N/A'
     }));
   };
@@ -269,7 +271,7 @@ const InspectionManagementPage: React.FC = () => {
               <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Inspector</th>
               <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Overall Result</th>
               <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-              <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Created At</th>
+              <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Submitted At</th>
               <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
@@ -312,7 +314,9 @@ const InspectionManagementPage: React.FC = () => {
                   </span>
                 </td>
                 <td className="px-6 py-4 text-sm text-slate-500">
-                  {new Date(item.created_at).toLocaleDateString()}
+                  {item.submitted_at
+                    ? new Date(item.submitted_at).toLocaleString()
+                    : <span className="text-slate-400 italic">{new Date(item.created_at).toLocaleString()}</span>}
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex items-center space-x-2">
