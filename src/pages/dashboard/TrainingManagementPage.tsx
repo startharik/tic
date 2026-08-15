@@ -154,31 +154,42 @@ const TrainingManagementPage: React.FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {trainings.map((item, index) => (
-              <tr key={item.id} className="hover:bg-slate-50 transition-colors group">
-                <td className="px-6 py-4 text-sm font-semibold text-slate-600">{index + 1}</td>
-                <td className="px-6 py-4">
-                  <div className="space-y-1">
-                    <div className="flex items-center space-x-2">
-                      <Layout className="h-4 w-4 text-slate-500" />
-                      <span className="text-sm font-bold text-slate-900">{item.jobs?.title || 'N/A'}</span>
+            {trainings.map((item, index) => {
+              const normalizedResult = (item.overall_result || '').toLowerCase();
+              const resultClass = normalizedResult === 'pass'
+                ? 'bg-emerald-100 text-emerald-700'
+                : normalizedResult === 'fail' || normalizedResult === 'failed'
+                  ? 'bg-rose-100 text-rose-700'
+                  : 'bg-slate-100 text-slate-600';
+              const resultLabel = normalizedResult === 'pass'
+                ? 'PASSED'
+                : normalizedResult === 'fail' || normalizedResult === 'failed'
+                  ? 'FAILED'
+                  : (item.overall_result || 'N/A').toUpperCase();
+
+              return (
+                <tr key={item.id} className="hover:bg-slate-50 transition-colors group">
+                  <td className="px-6 py-4 text-sm font-semibold text-slate-600">{index + 1}</td>
+                  <td className="px-6 py-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center space-x-2">
+                        <Layout className="h-4 w-4 text-slate-500" />
+                        <span className="text-sm font-bold text-slate-900">{item.jobs?.title || 'N/A'}</span>
+                      </div>
+                      <p className="text-xs text-slate-500">{item.equipment?.name || 'N/A'}</p>
                     </div>
-                    <p className="text-xs text-slate-500">{item.equipment?.name || 'N/A'}</p>
-                  </div>
-                </td>
-                <td className="px-6 py-4 text-sm text-slate-600">
-                  {item.trainer ? `${item.trainer.first_name || ''} ${item.trainer.last_name || ''}`.trim() || 'Unassigned' : 'Unassigned'}
-                </td>
-                <td className="px-6 py-4 text-sm text-slate-600">
-                  {item.overall_result ? (
-                    <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${
-                      item.overall_result === 'pass' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
-                    }`}>
-                      {item.overall_result}
-                    </span>
-                  ) : 'N/A'}
-                </td>
-                <td className="px-6 py-4">
+                  </td>
+                  <td className="px-6 py-4 text-sm text-slate-600">
+                    {item.trainer ? `${item.trainer.first_name || ''} ${item.trainer.last_name || ''}`.trim() || 'Unassigned' : 'Unassigned'}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-slate-600">
+                    {item.overall_result ? (
+                      <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${resultClass}`}>
+                        {resultLabel}
+                      </span>
+                    ) : 'N/A'}
+                  </td>
+                  <td className="px-6 py-4">
                   <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                     item.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
                     item.status === 'submitted' ? 'bg-amber-100 text-amber-700' :
@@ -225,7 +236,8 @@ const TrainingManagementPage: React.FC = () => {
                   </div>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

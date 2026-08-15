@@ -9,10 +9,13 @@ import {
   MessageSquare, 
   Edit,
   CheckCircle,
-  Loader2
+  Loader2,
+  Download,
+  ExternalLink
 } from 'lucide-react';
 import { getJob, getUsers, getClients, updateJob, createNotification } from '../../services/supabaseService';
 import type { Job, User, Client } from '../../services/supabaseService';
+import { supabase } from '../../lib/supabase';
 
 const JobDetailsPage: React.FC = () => {
   const { jobId } = useParams();
@@ -22,20 +25,23 @@ const JobDetailsPage: React.FC = () => {
   const [job, setJob] = useState<Job | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [jobAttachments, setJobAttachments] = useState<Array<{ id: string; file_name: string; file_url: string; file_type: string }>>([]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         if (!jobId) return;
         setLoading(true);
-        const [jobData, usersData, clientsData] = await Promise.all([
+        const [jobData, usersData, clientsData, mediaData] = await Promise.all([
           getJob(jobId),
           getUsers(),
-          getClients()
+          getClients(),
+          supabase.from('media').select('id, file_name, file_url, file_type').eq('job_id', jobId).order('created_at', { ascending: false })
         ]);
         setJob(jobData);
         setUsers(usersData);
         setClients(clientsData);
+        setJobAttachments((mediaData.data ?? []) as Array<{ id: string; file_name: string; file_url: string; file_type: string }>);
       } catch (error) {
         console.error('Error fetching job details:', error);
       } finally {
@@ -112,6 +118,10 @@ const JobDetailsPage: React.FC = () => {
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const openAttachment = (url: string) => {
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   if (loading) {
@@ -293,6 +303,51 @@ const JobDetailsPage: React.FC = () => {
                 <p className="text-sm text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-100">
                   {job.description || 'No description provided'}
                 </p>
+              </div>
+
+              <div className="md:col-span-2 pt-4 border-t border-slate-50">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-medium text-slate-500 uppercase">Job Attachments</p>
+                  {jobAttachments.length > 0 && (
+                    <span className="text-xs text-slate-500">{jobAttachments.length} file(s)</span>
+                  )}
+                </div>
+
+                {jobAttachments.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-sm text-slate-500">
+                    No job attachments uploaded.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {jobAttachments.map((attachment) => (
+                      <div key={attachment.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <FileText className="h-4 w-4 text-slate-500 flex-shrink-0" />
+                          <span className="truncate text-sm text-slate-700">{attachment.file_name}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openAttachment(attachment.file_url)}
+                            className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            Open
+                          </button>
+                          <a
+                            href={attachment.file_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 rounded-md border border-primary-200 bg-primary-50 px-2 py-1 text-xs font-medium text-primary-700 hover:bg-primary-100"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            Download
+                          </a>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>

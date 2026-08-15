@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { 
   ArrowLeft,
   Save,
@@ -7,13 +7,17 @@ import {
   User as UserIcon,
   Info,
   AlertCircle,
-  Loader2
+  Loader2,
+  Paperclip,
+  FileText,
+  X
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getClients, getUsers, getBranches, getEquipment, createJob, createNotification, geocodeAddressNominatim } from '../../services/supabaseService';
 import type { Client, User, Branch, Equipment } from '../../services/supabaseService';
 import { useAuth } from '../../contexts/AuthContext';
 import { MapContainer, Marker, TileLayer, useMapEvents, Popup } from 'react-leaflet';
+import { supabase } from '../../lib/supabase';
 import L from 'leaflet';
 
 const dateOnlyToISO = (value: string): string | undefined => {
@@ -23,15 +27,55 @@ const dateOnlyToISO = (value: string): string | undefined => {
   return d.toISOString();
 };
 
+const getMediaType = (file: File): 'image' | 'video' | 'document' => {
+  const mime = (file.type || '').toLowerCase();
+  if (mime.startsWith('image/')) return 'image';
+  if (mime.startsWith('video/')) return 'video';
+  return 'document';
+};
+
+const uploadJobAttachments = async (jobId: string, files: File[], uploadedBy?: string) => {
+  if (!files.length) return;
+
+  const uploads = await Promise.all(files.map(async (file) => {
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const path = `job-attachments/${jobId}/${Date.now()}_${Math.random().toString(36).slice(2)}_${safeName}`;
+    const uploadResult = await supabase.storage.from('media').upload(path, file, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: file.type || undefined,
+    });
+
+    if (uploadResult.error) throw uploadResult.error;
+
+    const publicUrl = supabase.storage.from('media').getPublicUrl(path).data.publicUrl;
+    if (!publicUrl) throw new Error(`Failed to generate public URL for ${file.name}`);
+
+    const { error } = await supabase.from('media').insert({
+      job_id: jobId,
+      uploaded_by: uploadedBy || null,
+      file_name: file.name,
+      file_type: getMediaType(file),
+      file_url: publicUrl,
+    });
+
+    if (error) throw error;
+  }));
+
+  return uploads;
+};
+
 const CreateJobPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetchingData, setFetchingData] = useState(true);
   const [clients, setClients] = useState<Client[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
+  const [jobAttachments, setJobAttachments] = useState<File[]>([]);
   const [formErrors, setFormErrors] = useState<{ jo_number?: string; task_number?: string }>({});
   const [formData, setFormData] = useState({
     client_id: '',
@@ -214,6 +258,10 @@ const CreateJobPage: React.FC = () => {
           is_read: false,
         });
       }
+      if (jobAttachments.length > 0) {
+        await uploadJobAttachments(createdJob.id, jobAttachments, user?.id);
+      }
+
       if (address && !coords) {
         alert('Job created, but coordinates could not be fetched. You can edit the job and try again.');
       }
@@ -573,6 +621,67 @@ const CreateJobPage: React.FC = () => {
 
         {/* Sidebar Form */}
         <div className="space-y-6">
+          <section className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+            <h3 className="text-lg font-bold text-slate-900 flex items-center space-x-2">
+              <Paperclip className="h-5 w-5 text-cyan-500" />
+              <span>Previous Certificates / Documents</span>
+            </h3>
+
+            <div className="space-y-4">
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  const nextFiles = Array.from(e.target.files ?? []);
+                  if (!nextFiles.length) return;
+                  setJobAttachments((prev) => [...prev, ...nextFiles]);
+                  e.target.value = '';
+                }}
+              />
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="inline-flex items-center gap-2 rounded-lg border border-dashed border-cyan-300 bg-cyan-50 px-4 py-2 text-sm font-semibold text-cyan-700 hover:bg-cyan-100"
+                >
+                  <Paperclip className="h-4 w-4" />
+                  Add attachment
+                </button>
+                <span className="text-xs text-slate-500">
+                  Accepted: images, PDFs, and other job-related certificates.
+                </span>
+              </div>
+
+              {jobAttachments.length > 0 ? (
+                <div className="space-y-2">
+                  {jobAttachments.map((file, index) => (
+                    <div key={`${file.name}-${index}`} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileText className="h-4 w-4 text-slate-500 flex-shrink-0" />
+                        <span className="truncate text-sm text-slate-700">{file.name}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setJobAttachments((prev) => prev.filter((_, idx) => idx !== index))}
+                        className="ml-2 rounded-md p-1 text-slate-500 hover:bg-slate-200 hover:text-slate-700"
+                        aria-label={`Remove ${file.name}`}
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                  No attachments added yet.
+                </div>
+              )}
+            </div>
+          </section>
+
           <section className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
             <h3 className="text-lg font-bold text-slate-900 flex items-center space-x-2">
               <CalendarIcon className="h-5 w-5 text-emerald-500" />

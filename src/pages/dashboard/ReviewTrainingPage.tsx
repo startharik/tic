@@ -130,6 +130,20 @@ const ReviewTrainingPage: React.FC = () => {
     return 'bg-slate-100 text-slate-600 border-slate-200';
   }, [training]);
 
+  const getOverallResultClass = (result?: string) => {
+    const normalized = (result || '').toLowerCase();
+    if (normalized === 'pass') return 'bg-emerald-100 text-emerald-700 border border-emerald-200';
+    if (normalized === 'fail' || normalized === 'failed') return 'bg-rose-100 text-rose-700 border border-rose-200';
+    return 'bg-slate-100 text-slate-600 border border-slate-200';
+  };
+
+  const getOverallResultLabel = (result?: string) => {
+    const normalized = (result || '').toLowerCase();
+    if (normalized === 'pass') return 'PASSED';
+    if (normalized === 'fail' || normalized === 'failed') return 'FAILED';
+    return (result || 'N/A').toUpperCase();
+  };
+
   const handleApprove = async () => {
     if (!id || !userProfile?.id) return;
     setIsApproving(true);
@@ -269,7 +283,7 @@ const ReviewTrainingPage: React.FC = () => {
           <div className="lg:col-span-2 space-y-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
-                { label: 'Overall Result', value: (training?.overall_result || 'N/A').toUpperCase(), color: 'text-slate-900', bg: 'bg-slate-50' },
+                { label: 'Overall Result', value: getOverallResultLabel(training?.overall_result), color: 'text-slate-900', bg: getOverallResultClass(training?.overall_result) },
                 { label: 'Equipment', value: training?.equipment?.name || 'N/A', color: 'text-slate-900', bg: 'bg-slate-50' },
                 { label: 'Status', value: statusLabel, color: 'text-slate-900', bg: 'bg-slate-50' },
                 { label: 'Media', value: media.length, color: 'text-violet-600', bg: 'bg-violet-50' },

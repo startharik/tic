@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { 
   ArrowLeft,
   Save,
@@ -7,12 +7,18 @@ import {
   User as UserIcon,
   Info,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  Paperclip,
+  FileText,
+  X,
+  Download,
+  ExternalLink
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getClients, getUsers, getBranches, getEquipment, getJob, updateJob, geocodeAddressNominatim, createNotification } from '../../services/supabaseService';
 import type { Client, User, Branch, Equipment } from '../../services/supabaseService';
 import { MapContainer, Marker, TileLayer, useMapEvents, Popup } from 'react-leaflet';
+import { supabase } from '../../lib/supabase';
 import L from 'leaflet';
 
 const isoToDateOnly = (value: string): string => {
@@ -31,15 +37,54 @@ const dateOnlyToISO = (value: string): string | undefined => {
   return d.toISOString();
 };
 
+const getMediaType = (file: File): 'image' | 'video' | 'document' => {
+  const mime = (file.type || '').toLowerCase();
+  if (mime.startsWith('image/')) return 'image';
+  if (mime.startsWith('video/')) return 'video';
+  return 'document';
+};
+
+const uploadJobAttachments = async (jobId: string, files: File[], uploadedBy?: string) => {
+  if (!files.length) return;
+
+  await Promise.all(files.map(async (file) => {
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const path = `job-attachments/${jobId}/${Date.now()}_${Math.random().toString(36).slice(2)}_${safeName}`;
+    const uploadResult = await supabase.storage.from('media').upload(path, file, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: file.type || undefined,
+    });
+
+    if (uploadResult.error) throw uploadResult.error;
+
+    const publicUrl = supabase.storage.from('media').getPublicUrl(path).data.publicUrl;
+    if (!publicUrl) throw new Error(`Failed to generate public URL for ${file.name}`);
+
+    const { error } = await supabase.from('media').insert({
+      job_id: jobId,
+      uploaded_by: uploadedBy || null,
+      file_name: file.name,
+      file_type: getMediaType(file),
+      file_url: publicUrl,
+    });
+
+    if (error) throw error;
+  }));
+};
+
 const EditJobPage: React.FC = () => {
   const navigate = useNavigate();
   const { jobId } = useParams();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetchingData, setFetchingData] = useState(true);
   const [clients, setClients] = useState<Client[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
+  const [existingAttachments, setExistingAttachments] = useState<Array<{ id: string; file_name: string; file_url: string; file_type: string }>>([]);
+  const [newAttachments, setNewAttachments] = useState<File[]>([]);
   const [initialSiteAddress, setInitialSiteAddress] = useState<string>('');
   const [initialCoords, setInitialCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [initialAssignedTo, setInitialAssignedTo] = useState<string>('');
@@ -124,17 +169,19 @@ const EditJobPage: React.FC = () => {
       try {
         setFetchingData(true);
         if (!jobId) return;
-        const [jobData, clientsData, usersData, branchesData, equipmentData] = await Promise.all([
+        const [jobData, clientsData, usersData, branchesData, equipmentData, attachmentsData] = await Promise.all([
           getJob(jobId),
           getClients(),
           getUsers(),
           getBranches(),
-          getEquipment()
+          getEquipment(),
+          supabase.from('media').select('id, file_name, file_url, file_type').eq('job_id', jobId).order('created_at', { ascending: false })
         ]);
         setClients(clientsData);
         setUsers(usersData);
         setBranches(branchesData);
         setEquipmentList(equipmentData);
+        setExistingAttachments((attachmentsData.data ?? []) as Array<{ id: string; file_name: string; file_url: string; file_type: string }>);
         setInitialSiteAddress(jobData.site_address || '');
         if (typeof jobData.site_latitude === 'number' && typeof jobData.site_longitude === 'number' && !(jobData.site_latitude === 0 && jobData.site_longitude === 0)) {
           setInitialCoords({ lat: jobData.site_latitude, lng: jobData.site_longitude });
@@ -226,6 +273,10 @@ const EditJobPage: React.FC = () => {
         due_date: dateOnlyToISO(formData.due_date),
       };
       await updateJob(jobId, dataToSubmit);
+
+      if (newAttachments.length > 0) {
+        await uploadJobAttachments(jobId, newAttachments, undefined);
+      }
       
       if (formData.assigned_to && formData.assigned_to !== initialAssignedTo) {
         await createNotification({
@@ -319,6 +370,92 @@ const EditJobPage: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Main Form */}
         <div className="md:col-span-2 space-y-6">
+          <section className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+            <h3 className="text-lg font-bold text-slate-900 flex items-center space-x-2">
+              <Paperclip className="h-5 w-5 text-cyan-500" />
+              <span>Previous Certificates / Documents</span>
+            </h3>
+
+            <div className="space-y-4">
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  const nextFiles = Array.from(e.target.files ?? []);
+                  if (!nextFiles.length) return;
+                  setNewAttachments((prev) => [...prev, ...nextFiles]);
+                  e.target.value = '';
+                }}
+              />
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="inline-flex items-center gap-2 rounded-lg border border-dashed border-cyan-300 bg-cyan-50 px-4 py-2 text-sm font-semibold text-cyan-700 hover:bg-cyan-100"
+                >
+                  <Paperclip className="h-4 w-4" />
+                  Add attachment
+                </button>
+              </div>
+
+              {existingAttachments.length > 0 || newAttachments.length > 0 ? (
+                <div className="space-y-2">
+                  {existingAttachments.map((attachment) => (
+                    <div key={attachment.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileText className="h-4 w-4 text-slate-500 flex-shrink-0" />
+                        <span className="truncate text-sm text-slate-700">{attachment.file_name}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={attachment.file_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          Open
+                        </a>
+                        <a
+                          href={attachment.file_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 rounded-md border border-primary-200 bg-primary-50 px-2 py-1 text-xs font-medium text-primary-700 hover:bg-primary-100"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          Download
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+
+                  {newAttachments.map((file, index) => (
+                    <div key={`${file.name}-${index}`} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileText className="h-4 w-4 text-slate-500 flex-shrink-0" />
+                        <span className="truncate text-sm text-slate-700">{file.name}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setNewAttachments((prev) => prev.filter((_, idx) => idx !== index))}
+                        className="ml-2 rounded-md p-1 text-slate-500 hover:bg-slate-200 hover:text-slate-700"
+                        aria-label={`Remove ${file.name}`}
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                  No attachments added yet.
+                </div>
+              )}
+            </div>
+          </section>
           <section className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
             <h3 className="text-lg font-bold text-slate-900 flex items-center space-x-2">
               <Info className="h-5 w-5 text-primary-500" />

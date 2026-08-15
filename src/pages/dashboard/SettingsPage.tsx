@@ -3,6 +3,8 @@ import { Bell, Lock, Save, Settings as SettingsIcon, User as UserIcon } from 'lu
 import { useAuth } from '../../contexts/AuthContext';
 import { getAppSettings, updateAppSettings, updateUser } from '../../services/supabaseService';
 
+const APP_VERSION = import.meta.env.VITE_APP_VERSION || '0.0.0';
+
 const SettingsPage: React.FC = () => {
   const { user, userProfile, refreshUserProfile, resetPassword, signOut } = useAuth();
   const [active, setActive] = useState<'profile' | 'preferences' | 'security' | 'operations'>('profile');
@@ -11,6 +13,7 @@ const SettingsPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  const [username, setUsername] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
@@ -29,10 +32,11 @@ const SettingsPage: React.FC = () => {
   );
 
   useEffect(() => {
+    setUsername(userProfile?.username || '');
     setFirstName(userProfile?.first_name || '');
     setLastName(userProfile?.last_name || '');
     setPhone(userProfile?.phone || '');
-  }, [userProfile?.first_name, userProfile?.last_name, userProfile?.phone]);
+  }, [userProfile?.username, userProfile?.first_name, userProfile?.last_name, userProfile?.phone]);
 
   useEffect(() => {
     setError(null);
@@ -61,6 +65,7 @@ const SettingsPage: React.FC = () => {
     setSuccess(null);
     try {
       await updateUser(user.id, {
+        username: username.trim() || undefined,
         first_name: firstName.trim() || undefined,
         last_name: lastName.trim() || undefined,
         phone: phone.trim() || undefined,
@@ -125,6 +130,7 @@ const SettingsPage: React.FC = () => {
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
         <p className="text-slate-500 mt-1">Manage your profile, preferences, and security.</p>
+        <p className="text-xs text-slate-400 mt-2">System version: <span className="font-semibold text-slate-600">v{APP_VERSION}</span></p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
@@ -175,6 +181,15 @@ const SettingsPage: React.FC = () => {
                   <h3 className="text-lg font-bold text-slate-900">Profile</h3>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-slate-700">Username</label>
+                      <input
+                        type="text"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+                      />
+                    </div>
                     <div className="space-y-2">
                       <label className="text-sm font-semibold text-slate-700">First Name</label>
                       <input

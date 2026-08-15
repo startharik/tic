@@ -33,6 +33,7 @@ const CreateUserPage: React.FC = () => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
+    username: '',
     first_name: '',
     last_name: '',
     phone: '',
@@ -199,6 +200,16 @@ const CreateUserPage: React.FC = () => {
 
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-slate-700">Username</label>
+            <input
+              required
+              value={formData.username}
+              onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+              placeholder="e.g., john.doe"
+            />
+          </div>
           <div className="space-y-2">
             <label className="text-sm font-semibold text-slate-700">First Name</label>
             <input
