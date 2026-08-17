@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import * as XLSX from 'xlsx';
 import { 
   Building2, 
   Search, 
@@ -11,16 +12,24 @@ import {
   ExternalLink,
   Briefcase,
   FileText,
-  Loader2
+  Loader2,
+  Download,
+  Upload,
+  AlertCircle,
+  CheckCircle2
 } from 'lucide-react';
-import { getClients, getJobs, deleteClient } from '../../services/supabaseService';
+import { getClients, getJobs, deleteClient, getCountries, bulkCreateClients } from '../../services/supabaseService';
 import type { Client, Job } from '../../services/supabaseService';
 
 const ClientsPage: React.FC = () => {
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [clients, setClients] = useState<Client[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
+  const [importing, setImporting] = useState(false);
+  const [importMessage, setImportMessage] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
 
   const fetchData = async () => {
     try {
@@ -47,6 +56,92 @@ const ClientsPage: React.FC = () => {
     return { activeJobs };
   };
 
+  const handleDownloadTemplate = async () => {
+    try {
+      const countries = await getCountries();
+      const sampleRow = {
+        name: 'Client Name',
+        contact_person: 'Primary Contact',
+        email: 'contact@client.com',
+        phone: '+966500000000',
+        address: 'Street address',
+        city: 'Riyadh',
+        country_name: countries[0]?.name || 'Saudi Arabia',
+      };
+
+      const worksheet = XLSX.utils.json_to_sheet([sampleRow]);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Clients');
+      XLSX.writeFile(workbook, 'client_import_template.xlsx');
+    } catch (error) {
+      console.error('Error generating template:', error);
+      setImportError('Unable to generate the client import template. Please try again.');
+    }
+  };
+
+  const handleImportClients = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
+    setImportError(null);
+    setImportMessage(null);
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json<Record<string, string | number | undefined>>(firstSheet, {
+        defval: '',
+      });
+
+      if (!rows.length) {
+        throw new Error('The uploaded file is empty.');
+      }
+
+      const countries = await getCountries();
+      const countryMap = new Map(
+        countries.map((country) => [country.name.trim().toLowerCase(), country.id]),
+      );
+
+      const records = rows
+        .map((row) => {
+          const name = String(row.name ?? row['Client Name'] ?? '').trim();
+          if (!name) return null;
+
+          const countryName = String(row.country_name ?? row.Country ?? row['Country Name'] ?? '').trim();
+          const country_id = countryName ? countryMap.get(countryName.toLowerCase()) || undefined : undefined;
+
+          return {
+            name,
+            contact_person: String(row.contact_person ?? row['Primary Contact'] ?? '').trim() || undefined,
+            email: String(row.email ?? row.Email ?? '').trim() || undefined,
+            phone: String(row.phone ?? row.Phone ?? '').trim() || undefined,
+            address: String(row.address ?? row.Address ?? '').trim() || undefined,
+            city: String(row.city ?? row.City ?? '').trim() || undefined,
+            country_id,
+          };
+        })
+        .filter((record): record is NonNullable<typeof record> => Boolean(record));
+
+      if (!records.length) {
+        throw new Error('No valid client rows were found. Please use the template columns exactly as shown.');
+      }
+
+      await bulkCreateClients(records);
+      setImportMessage(`Successfully imported ${records.length} client${records.length > 1 ? 's' : ''}.`);
+      await fetchData();
+    } catch (error) {
+      console.error('Error importing clients:', error);
+      setImportError(error instanceof Error ? error.message : 'Failed to import clients. Please check the file and try again.');
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -62,15 +157,50 @@ const ClientsPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-900">Client Management</h1>
           <p className="text-slate-500 mt-1">Manage corporate clients, contracts, and service history.</p>
         </div>
-        <button
-          type="button"
-          onClick={() => navigate('/admin/clients/create')}
-          className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 shadow-lg shadow-primary-200 transition-all"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Add New Client</span>
-        </button>
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            type="button"
+            onClick={handleDownloadTemplate}
+            className="flex items-center space-x-2 px-4 py-2 border border-slate-200 bg-white text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-all"
+          >
+            <Download className="h-4 w-4" />
+            <span>Download Template</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importing}
+            className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 shadow-lg shadow-primary-200 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+          >
+            <Upload className="h-4 w-4" />
+            <span>{importing ? 'Importing…' : 'Import Clients'}</span>
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,.xlsx,.xls"
+            onChange={handleImportClients}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => navigate('/admin/clients/create')}
+            className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 shadow-lg shadow-primary-200 transition-all"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Add New Client</span>
+          </button>
+        </div>
       </div>
+
+      {(importMessage || importError) && (
+        <div className={`rounded-xl border p-4 ${importError ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
+          <div className="flex items-start gap-3">
+            {importError ? <AlertCircle className="h-5 w-5 mt-0.5" /> : <CheckCircle2 className="h-5 w-5 mt-0.5" />}
+            <p className="text-sm font-medium">{importError || importMessage}</p>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-4">
         <div className="flex-1 relative">

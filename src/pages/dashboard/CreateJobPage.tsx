@@ -13,8 +13,8 @@ import {
   X
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getClients, getUsers, getBranches, getEquipment, createJob, createNotification, geocodeAddressNominatim } from '../../services/supabaseService';
-import type { Client, User, Branch, Equipment } from '../../services/supabaseService';
+import { getClients, getUsers, getBranches, getEquipment, createJob, createNotification, geocodeAddressNominatim, getSavedLocations } from '../../services/supabaseService';
+import type { Client, User, Branch, Equipment, SavedLocation } from '../../services/supabaseService';
 import { useAuth } from '../../contexts/AuthContext';
 import { MapContainer, Marker, TileLayer, useMapEvents, Popup } from 'react-leaflet';
 import { supabase } from '../../lib/supabase';
@@ -75,6 +75,7 @@ const CreateJobPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
+  const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([]);
   const [jobAttachments, setJobAttachments] = useState<File[]>([]);
   const [formErrors, setFormErrors] = useState<{ jo_number?: string; task_number?: string }>({});
   const [formData, setFormData] = useState({
@@ -155,17 +156,19 @@ const CreateJobPage: React.FC = () => {
       try {
         setFetchingData(true);
         console.log('Fetching data for create job...');
-        const [clientsData, usersData, branchesData, equipmentData] = await Promise.all([
+        const [clientsData, usersData, branchesData, equipmentData, savedLocationsData] = await Promise.all([
           getClients(),
           getUsers(),
           getBranches(),
-          getEquipment()
+          getEquipment(),
+          getSavedLocations()
         ]);
-        console.log('Fetched data:', { clientsData, usersData, branchesData, equipmentData });
+        console.log('Fetched data:', { clientsData, usersData, branchesData, equipmentData, savedLocationsData });
         setClients(clientsData);
         setUsers(usersData);
         setBranches(branchesData);
         setEquipmentList(equipmentData);
+        setSavedLocations(savedLocationsData);
       } catch (error) {
         console.error('Error fetching data:', error);
         alert('Error fetching data: ' + (error as any)?.message);
@@ -498,6 +501,34 @@ const CreateJobPage: React.FC = () => {
                   placeholder="Enter full site address"
                 />
               </div>
+
+              {savedLocations.length > 0 && (
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">Choose saved location</label>
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      const selected = savedLocations.find((location) => location.id === e.target.value);
+                      if (!selected) return;
+                      setFormData((prev) => ({
+                        ...prev,
+                        site_address: selected.address || prev.site_address,
+                        site_latitude: selected.latitude !== undefined ? String(selected.latitude) : prev.site_latitude,
+                        site_longitude: selected.longitude !== undefined ? String(selected.longitude) : prev.site_longitude,
+                      }));
+                    }}
+                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+                  >
+                    <option value="">Select an existing address</option>
+                    {savedLocations.map((location) => (
+                      <option key={location.id} value={location.id}>
+                        {location.name || 'Unnamed location'} — {location.address}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700">Site Person Name</label>

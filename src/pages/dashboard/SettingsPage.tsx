@@ -1,7 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Bell, Lock, Save, Settings as SettingsIcon, User as UserIcon } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import * as XLSX from 'xlsx';
+import { Bell, Download, Lock, MapPinned, Save, Settings as SettingsIcon, Upload, User as UserIcon } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { getAppSettings, updateAppSettings, updateUser } from '../../services/supabaseService';
+import { bulkCreateSavedLocations, geocodeAddressNominatim, getAppSettings, getSavedLocations, updateAppSettings, updateUser } from '../../services/supabaseService';
+import type { SavedLocation } from '../../services/supabaseService';
 
 const APP_VERSION = import.meta.env.VITE_APP_VERSION || '0.0.0';
 
@@ -22,6 +24,11 @@ const SettingsPage: React.FC = () => {
   const [language, setLanguage] = useState<string>(() => window.localStorage.getItem('tic_pref_language') || 'en');
   const [geofenceRadius, setGeofenceRadius] = useState<number>(200);
   const [loadingOps, setLoadingOps] = useState<boolean>(false);
+  const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([]);
+  const [locationImporting, setLocationImporting] = useState(false);
+  const [locationMessage, setLocationMessage] = useState<string | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const locationFileInputRef = useRef<HTMLInputElement | null>(null);
   const timezones = useMemo(
     () => [
       { value: 'Asia/Riyadh', label: '(GMT+03:00) Riyadh' },
@@ -53,6 +60,19 @@ const SettingsPage: React.FC = () => {
       } catch (_) {
       } finally {
         setLoadingOps(false);
+      }
+    };
+    run();
+  }, [userProfile?.id, userProfile?.role]);
+
+  useEffect(() => {
+    const run = async () => {
+      if (!userProfile || !['super_admin', 'admin'].includes(userProfile.role)) return;
+      try {
+        const data = await getSavedLocations();
+        setSavedLocations(data);
+      } catch (_) {
+        setSavedLocations([]);
       }
     };
     run();
@@ -122,6 +142,100 @@ const SettingsPage: React.FC = () => {
       setError(e?.message || 'Failed to save operations settings');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDownloadSavedLocationsTemplate = () => {
+    const worksheet = XLSX.utils.json_to_sheet([
+      {
+        name: 'Main Office',
+        address: 'King Fahd Road, Riyadh, Saudi Arabia',
+        city: 'Riyadh',
+        country_name: 'Saudi Arabia',
+        latitude: '24.7136',
+        longitude: '46.6753',
+      },
+      {
+        name: 'Branch 2',
+        address: 'Jeddah Corniche, Jeddah, Saudi Arabia',
+        city: 'Jeddah',
+        country_name: 'Saudi Arabia',
+        latitude: '21.5433',
+        longitude: '39.1728',
+      },
+    ]);
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Saved Locations');
+    XLSX.writeFile(workbook, 'saved_locations_template.xlsx');
+  };
+
+  const handleImportSavedLocations = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setLocationImporting(true);
+    setLocationError(null);
+    setLocationMessage(null);
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json<Record<string, string | number | undefined>>(sheet, { defval: '' });
+
+      if (!rows.length) {
+        throw new Error('Uploaded file is empty.');
+      }
+
+      const validLocations = [] as Array<{ name?: string; address: string; city?: string; country_name?: string; latitude?: number; longitude?: number }>;
+
+      for (const row of rows) {
+        const address = String(row.address ?? row.Address ?? row['Site Address'] ?? '').trim();
+        const name = String(row.name ?? row.Name ?? row['Location Name'] ?? '').trim();
+        if (!address) continue;
+
+        let latitude = Number(row.latitude ?? row.Latitude ?? row['Latitude']);
+        let longitude = Number(row.longitude ?? row.Longitude ?? row['Longitude']);
+
+        if ((!Number.isFinite(latitude) || !Number.isFinite(longitude)) && address) {
+          const countryHint = String(row.country_name ?? row.Country ?? row['Country Name'] ?? '').trim();
+          const geocoded = await geocodeAddressNominatim(address, { countryHint: countryHint || undefined });
+          if (geocoded) {
+            latitude = geocoded.lat;
+            longitude = geocoded.lng;
+          }
+        }
+
+        const record = {
+          name: name || address,
+          address,
+          city: String(row.city ?? row.City ?? '').trim() || undefined,
+          country_name: String(row.country_name ?? row.Country ?? row['Country Name'] ?? '').trim() || undefined,
+          latitude: Number.isFinite(latitude) ? latitude : undefined,
+          longitude: Number.isFinite(longitude) ? longitude : undefined,
+        };
+
+        if (record.address) {
+          validLocations.push(record);
+        }
+      }
+
+      if (!validLocations.length) {
+        throw new Error('No valid addresses were found in the uploaded file.');
+      }
+
+      await bulkCreateSavedLocations(validLocations);
+      const data = await getSavedLocations();
+      setSavedLocations(data);
+      setLocationMessage(`Successfully imported ${validLocations.length} saved location${validLocations.length > 1 ? 's' : ''}.`);
+    } catch (e: any) {
+      setLocationError(e?.message || 'Failed to import saved locations.');
+    } finally {
+      setLocationImporting(false);
+      if (locationFileInputRef.current) {
+        locationFileInputRef.current.value = '';
+      }
     }
   };
 
@@ -360,6 +474,67 @@ const SettingsPage: React.FC = () => {
                       />
                       <div className="text-xs text-slate-400 mt-2">Allowed range: 20m to 5000m</div>
                     </div>
+                  </div>
+
+                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <MapPinned className="h-4 w-4 text-slate-600" />
+                      <div className="text-sm font-bold text-slate-900">Bulk saved locations</div>
+                    </div>
+                    <div className="text-sm text-slate-500 mt-1">Upload a list of commonly-used sites so admins can select them when creating jobs and the address + coordinates are auto-filled.</div>
+
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={handleDownloadSavedLocationsTemplate}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-100"
+                      >
+                        <Download className="h-4 w-4" />
+                        Download template
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => locationFileInputRef.current?.click()}
+                        disabled={locationImporting}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-semibold hover:bg-primary-700 disabled:opacity-60"
+                      >
+                        <Upload className="h-4 w-4" />
+                        {locationImporting ? 'Importing...' : 'Upload locations'}
+                      </button>
+                      <input
+                        ref={locationFileInputRef}
+                        type="file"
+                        accept=".csv,.xlsx,.xls"
+                        className="hidden"
+                        onChange={handleImportSavedLocations}
+                      />
+                    </div>
+
+                    {(locationError || locationMessage) && (
+                      <div className={`mt-4 rounded-lg border px-3 py-2 text-sm ${locationError ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
+                        {locationError || locationMessage}
+                      </div>
+                    )}
+
+                    {savedLocations.length > 0 && (
+                      <div className="mt-4 space-y-2">
+                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Saved locations</div>
+                        <div className="max-h-48 overflow-auto rounded-xl border border-slate-200 bg-white p-2 space-y-2">
+                          {savedLocations.map((item) => (
+                            <div key={item.id} className="rounded-lg bg-slate-50 px-3 py-2">
+                              <div className="text-sm font-semibold text-slate-800">{item.name || 'Unnamed location'}</div>
+                              <div className="text-xs text-slate-600">{item.address}</div>
+                              {(item.latitude !== undefined && item.longitude !== undefined) && (
+                                <div className="text-[11px] text-slate-500 mt-1">
+                                  {item.latitude.toFixed(6)}, {item.longitude.toFixed(6)}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex justify-end pt-2">

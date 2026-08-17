@@ -15,8 +15,8 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getClients, getUsers, getBranches, getEquipment, getJob, updateJob, geocodeAddressNominatim, createNotification } from '../../services/supabaseService';
-import type { Client, User, Branch, Equipment } from '../../services/supabaseService';
+import { getClients, getUsers, getBranches, getEquipment, getJob, updateJob, geocodeAddressNominatim, createNotification, getSavedLocations } from '../../services/supabaseService';
+import type { Client, User, Branch, Equipment, SavedLocation } from '../../services/supabaseService';
 import { MapContainer, Marker, TileLayer, useMapEvents, Popup } from 'react-leaflet';
 import { supabase } from '../../lib/supabase';
 import L from 'leaflet';
@@ -83,6 +83,7 @@ const EditJobPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
+  const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([]);
   const [existingAttachments, setExistingAttachments] = useState<Array<{ id: string; file_name: string; file_url: string; file_type: string }>>([]);
   const [newAttachments, setNewAttachments] = useState<File[]>([]);
   const [initialSiteAddress, setInitialSiteAddress] = useState<string>('');
@@ -169,18 +170,20 @@ const EditJobPage: React.FC = () => {
       try {
         setFetchingData(true);
         if (!jobId) return;
-        const [jobData, clientsData, usersData, branchesData, equipmentData, attachmentsData] = await Promise.all([
+        const [jobData, clientsData, usersData, branchesData, equipmentData, attachmentsData, savedLocationsData] = await Promise.all([
           getJob(jobId),
           getClients(),
           getUsers(),
           getBranches(),
           getEquipment(),
-          supabase.from('media').select('id, file_name, file_url, file_type').eq('job_id', jobId).order('created_at', { ascending: false })
+          supabase.from('media').select('id, file_name, file_url, file_type').eq('job_id', jobId).order('created_at', { ascending: false }),
+          getSavedLocations()
         ]);
         setClients(clientsData);
         setUsers(usersData);
         setBranches(branchesData);
         setEquipmentList(equipmentData);
+        setSavedLocations(savedLocationsData);
         setExistingAttachments((attachmentsData.data ?? []) as Array<{ id: string; file_name: string; file_url: string; file_type: string }>);
         setInitialSiteAddress(jobData.site_address || '');
         if (typeof jobData.site_latitude === 'number' && typeof jobData.site_longitude === 'number' && !(jobData.site_latitude === 0 && jobData.site_longitude === 0)) {
@@ -627,6 +630,34 @@ const EditJobPage: React.FC = () => {
                   placeholder="Enter full site address"
                 />
               </div>
+
+              {savedLocations.length > 0 && (
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">Choose saved location</label>
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      const selected = savedLocations.find((location) => location.id === e.target.value);
+                      if (!selected) return;
+                      setFormData((prev) => ({
+                        ...prev,
+                        site_address: selected.address || prev.site_address,
+                        site_latitude: selected.latitude !== undefined ? String(selected.latitude) : prev.site_latitude,
+                        site_longitude: selected.longitude !== undefined ? String(selected.longitude) : prev.site_longitude,
+                      }));
+                    }}
+                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+                  >
+                    <option value="">Select an existing address</option>
+                    {savedLocations.map((location) => (
+                      <option key={location.id} value={location.id}>
+                        {location.name || 'Unnamed location'} — {location.address}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700">Site Person Name</label>

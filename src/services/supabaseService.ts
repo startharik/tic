@@ -86,6 +86,18 @@ export interface Client {
   countries?: { id: string; name: string };
 }
 
+export interface SavedLocation {
+  id: string;
+  name?: string;
+  address: string;
+  city?: string;
+  country_name?: string;
+  latitude?: number;
+  longitude?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Equipment {
   id: string;
   client_id: string;
@@ -342,6 +354,20 @@ export const createClient = async (client: Omit<Client, 'id' | 'created_at' | 'u
   return data;
 };
 
+export const bulkCreateClients = async (
+  clients: Array<Omit<Client, 'id' | 'created_at' | 'updated_at'>>,
+): Promise<Client[]> => {
+  if (!clients.length) return [];
+
+  const { data, error } = await supabase.from('clients').insert(clients).select(`
+    *,
+    countries (id, name)
+  `);
+  if (error) throw error;
+  invalidateCache('clients', 'dashboardStats');
+  return data || [];
+};
+
 export const updateClient = async (id: string, client: Partial<Omit<Client, 'id' | 'created_at' | 'updated_at'>>): Promise<Client> => {
   const { data, error } = await supabase.from('clients').update(client).eq('id', id).select(`
     *,
@@ -356,6 +382,29 @@ export const deleteClient = async (id: string): Promise<void> => {
   const { error } = await supabase.from('clients').delete().eq('id', id);
   if (error) throw error;
   invalidateCache('clients', 'dashboardStats');
+};
+
+export const getSavedLocations = async (): Promise<SavedLocation[]> => {
+  const { data, error } = await supabase.from('saved_locations').select('*').order('name', { nullsFirst: false }).order('address');
+  if (error) throw error;
+  return data || [];
+};
+
+export const bulkCreateSavedLocations = async (
+  locations: Array<{
+    name?: string;
+    address: string;
+    city?: string;
+    country_name?: string;
+    latitude?: number;
+    longitude?: number;
+  }>,
+): Promise<SavedLocation[]> => {
+  if (!locations.length) return [];
+
+  const { data, error } = await supabase.from('saved_locations').insert(locations).select('*');
+  if (error) throw error;
+  return data || [];
 };
 
 export const geocodeAddressNominatim = async (
