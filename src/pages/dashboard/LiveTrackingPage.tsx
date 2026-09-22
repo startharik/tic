@@ -11,8 +11,8 @@ import {
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import * as L from 'leaflet';
-import { getLocationTracking, getUsers } from '../../services/supabaseService';
-import type { LocationTracking, User } from '../../services/supabaseService';
+import { getAttendanceLogs, getLocationTracking, getUsers } from '../../services/supabaseService';
+import type { AttendanceLog, LocationTracking, User } from '../../services/supabaseService';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 
@@ -27,6 +27,16 @@ const engineerMarkerIcon = L.divIcon({
   iconAnchor: [10, 20],
   popupAnchor: [0, -18],
 });
+
+const BAHRAIN_TIME_ZONE = 'Asia/Bahrain';
+const LOCATION_ACTIVE_WINDOW_MS = 10 * 60 * 1000;
+
+const formatBahrainDateTime = (value: string) =>
+  new Intl.DateTimeFormat('en-GB', {
+    timeZone: BAHRAIN_TIME_ZONE,
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value));
 
 const FlyTo: React.FC<{ center: [number, number]; zoom?: number }> = ({ center, zoom }) => {
   const map = useMap();
@@ -81,6 +91,7 @@ const LiveTrackingPage: React.FC = () => {
   }
   const [loading, setLoading] = useState(true);
   const [locationData, setLocationData] = useState<LocationTracking[]>([]);
+  const [attendanceLogs, setAttendanceLogs] = useState<AttendanceLog[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const defaultCenter = useMemo<[number, number]>(() => [26.3927, 49.9777], []);
@@ -97,8 +108,12 @@ const LiveTrackingPage: React.FC = () => {
     return Object.values(userLatestLocation).filter((loc) => {
       const user = users.find(u => u.id === loc.user_id);
       if (!user || user.role === 'super_admin') return false;
+      const latestAttendance = attendanceLogs
+        .filter((log) => log.user_id === loc.user_id)
+        .sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime())[0];
+      if (!latestAttendance || latestAttendance.event_type !== 'sign_in') return false;
       const ts = new Date(loc.recorded_at).getTime();
-      return Number.isFinite(ts) && (now - ts) <= 10 * 60 * 1000;
+      return Number.isFinite(ts) && (now - ts) <= LOCATION_ACTIVE_WINDOW_MS;
     }).map(loc => {
       const user = users.find(u => u.id === loc.user_id);
       const name = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Unknown User' : 'Unknown User';
@@ -110,7 +125,7 @@ const LiveTrackingPage: React.FC = () => {
         job: loc.jobs?.title || 'N/A',
         location: 'Site Location',
         battery: '85%',
-        lastUpdate: new Date(loc.recorded_at).toLocaleString(),
+        lastUpdate: formatBahrainDateTime(loc.recorded_at),
         lat: loc.latitude,
         lng: loc.longitude,
       };
@@ -132,12 +147,14 @@ const LiveTrackingPage: React.FC = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [locations, userList] = await Promise.all([
+        const [locations, attendance, userList] = await Promise.all([
           getLocationTracking(),
+          getAttendanceLogs(),
           getUsers(),
         ]);
         if (isCancelled) return;
         setLocationData(locations);
+        setAttendanceLogs(attendance);
         setUsers(userList);
         if (locations.length > 0) {
           setSelectedId(locations[0].user_id);
@@ -153,6 +170,9 @@ const LiveTrackingPage: React.FC = () => {
     const channel = supabase
       .channel('location_tracking:admin')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'location_tracking' }, () => {
+        fetchData();
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'attendance_logs' }, () => {
         fetchData();
       })
       .subscribe();

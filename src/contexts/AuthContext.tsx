@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useRef, useState } from 'r
 import type { ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
 import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
-import { getCurrentUserProfile, type User } from '../services/supabaseService';
+import { getCurrentUserProfile, recordAttendanceEvent, type User } from '../services/supabaseService';
 
 interface AuthContextType {
   user: SupabaseUser | null;
@@ -214,13 +214,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await withTimeout(
+      const { data, error } = await withTimeout(
         supabase.auth.signInWithPassword({
           email,
           password,
         }),
         8000,
       );
+      if (!error && data.user?.id) {
+        recordAttendanceEvent(data.user.id, 'sign_in').catch((attendanceError) => {
+          console.error('Failed to record attendance sign-in', attendanceError);
+        });
+      }
       return { error };
     } catch (error) {
       return { error };
@@ -228,6 +233,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const signOut = async () => {
+    const currentUserId = session?.user?.id || user?.id;
+    if (currentUserId) {
+      try {
+        await withTimeout(recordAttendanceEvent(currentUserId, 'sign_out'), 3000);
+      } catch (error) {
+        console.error('Failed to record attendance sign-out', error);
+      }
+    }
     await supabase.auth.signOut();
     window.localStorage.removeItem('tic_last_role');
     window.location.replace('/login');

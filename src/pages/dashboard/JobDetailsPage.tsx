@@ -13,8 +13,8 @@ import {
   Download,
   ExternalLink
 } from 'lucide-react';
-import { getJob, getUsers, getClients, updateJob, createNotification } from '../../services/supabaseService';
-import type { Job, User, Client } from '../../services/supabaseService';
+import { getJob, getJobServiceRequests, getUsers, getClients, updateJob, createNotification } from '../../services/supabaseService';
+import type { Job, JobServiceRequest, User, Client } from '../../services/supabaseService';
 import { supabase } from '../../lib/supabase';
 
 const JobDetailsPage: React.FC = () => {
@@ -23,6 +23,7 @@ const JobDetailsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [job, setJob] = useState<Job | null>(null);
+  const [serviceRequests, setServiceRequests] = useState<JobServiceRequest[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [jobAttachments, setJobAttachments] = useState<Array<{ id: string; file_name: string; file_url: string; file_type: string }>>([]);
@@ -32,13 +33,15 @@ const JobDetailsPage: React.FC = () => {
       try {
         if (!jobId) return;
         setLoading(true);
-        const [jobData, usersData, clientsData, mediaData] = await Promise.all([
+        const [jobData, requestsData, usersData, clientsData, mediaData] = await Promise.all([
           getJob(jobId),
+          getJobServiceRequests(jobId),
           getUsers(),
           getClients(),
           supabase.from('media').select('id, file_name, file_url, file_type').eq('job_id', jobId).order('created_at', { ascending: false })
         ]);
         setJob(jobData);
+        setServiceRequests(requestsData);
         setUsers(usersData);
         setClients(clientsData);
         setJobAttachments((mediaData.data ?? []) as Array<{ id: string; file_name: string; file_url: string; file_type: string }>);
@@ -160,6 +163,7 @@ const JobDetailsPage: React.FC = () => {
             </div>
             <p className="text-slate-500">{jobNumber(job.id)} • {getClientName(job.client_id)}</p>
           </div>
+
         </div>
         <div className="flex items-center space-x-3">
           <button 
@@ -178,6 +182,42 @@ const JobDetailsPage: React.FC = () => {
               {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
               <span>Approve Report</span>
             </button>
+          )}
+        </div>
+        <div className="md:col-span-2 pt-4 border-t border-slate-50">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-medium text-slate-500 uppercase">On-the-Go Service Requests</p>
+            <span className="text-xs text-slate-500">{serviceRequests.length} request(s)</span>
+          </div>
+          {serviceRequests.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-sm text-slate-500">
+              No service requests created under this parent job.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {serviceRequests.map((request) => (
+                <div key={request.id} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-800">
+                        {request.request_no} · {request.title}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {[request.clients?.name, request.equipment?.name, request.service_type]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-blue-100 px-2 py-1 text-[10px] font-semibold uppercase text-blue-700">
+                      {request.status}
+                    </span>
+                  </div>
+                  {request.description && (
+                    <p className="mt-2 text-xs text-slate-600">{request.description}</p>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </div>

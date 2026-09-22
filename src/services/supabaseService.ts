@@ -155,6 +155,30 @@ export interface Job {
     trainer?: { id: string; first_name: string; last_name: string };
 }
 
+export interface JobServiceRequest {
+  id: string;
+  parent_job_id: string;
+  client_id?: string;
+  equipment_id?: string;
+  requested_by?: string;
+  assigned_to?: string;
+  request_no: string;
+  title: string;
+  description?: string;
+  service_type: string;
+  status: string;
+  priority: string;
+  site_address?: string;
+  site_latitude?: number;
+  site_longitude?: number;
+  checked_in_at?: string;
+  completed_at?: string;
+  created_at: string;
+  updated_at: string;
+  clients?: { name?: string };
+  equipment?: { name?: string };
+}
+
 export interface Training {
   id: string;
   job_id: string;
@@ -429,10 +453,21 @@ export const geocodeAddressNominatim = async (
 };
 
 // ==================== JOBS ====================
+const getJobVisibilityScope = async (): Promise<{ userId: string; role: UserRole } | null> => {
+  const userId = (await supabase.auth.getUser()).data.user?.id;
+  if (!userId) return null;
+
+  const { data, error } = await supabase.from('users').select('role').eq('id', userId).single();
+  if (error) throw error;
+  return { userId, role: data.role as UserRole };
+};
+
 export const getJobs = async (): Promise<Job[]> => {
-  const cached = getCachedValue<Job[]>('jobs');
+  const scope = await getJobVisibilityScope();
+  const cacheKey = scope && scope.role === 'admin' ? `jobs:${scope.userId}` : 'jobs:all';
+  const cached = getCachedValue<Job[]>(cacheKey);
   if (cached) return cached;
-  const { data, error } = await supabase.from('jobs').select(`
+  let query = supabase.from('jobs').select(`
     *,
     clients (id, name),
     branches (id, name),
@@ -441,13 +476,18 @@ export const getJobs = async (): Promise<Job[]> => {
     created_by_users:users!jobs_created_by_fkey(id, first_name, last_name),
     sales_person:users!jobs_sales_person_id_fkey(id, first_name, last_name),
     trainer:users!jobs_trainer_id_fkey(id, first_name, last_name)
-  `).order('created_at', { ascending: false });
+  `);
+  if (scope?.role === 'admin') {
+    query = query.eq('created_by', scope.userId);
+  }
+  const { data, error } = await query.order('created_at', { ascending: false });
   if (error) throw error;
-  return setCachedValue('jobs', data || []);
+  return setCachedValue(cacheKey, data || []);
 };
 
 export const getJob = async (id: string): Promise<Job> => {
-  const { data, error } = await supabase.from('jobs').select(`
+  const scope = await getJobVisibilityScope();
+  let query = supabase.from('jobs').select(`
     *,
     clients (id, name),
     branches (id, name),
@@ -456,9 +496,23 @@ export const getJob = async (id: string): Promise<Job> => {
     created_by_users:users!jobs_created_by_fkey(id, first_name, last_name),
     sales_person:users!jobs_sales_person_id_fkey(id, first_name, last_name),
     trainer:users!jobs_trainer_id_fkey(id, first_name, last_name)
-  `).eq('id', id).single();
+  `).eq('id', id);
+  if (scope?.role === 'admin') {
+    query = query.eq('created_by', scope.userId);
+  }
+  const { data, error } = await query.single();
   if (error) throw error;
   return data;
+};
+
+export const getJobServiceRequests = async (parentJobId: string): Promise<JobServiceRequest[]> => {
+  const { data, error } = await supabase
+    .from('job_service_requests')
+    .select('*, clients(name), equipment(name)')
+    .eq('parent_job_id', parentJobId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
 };
 
 export const createJob = async (job: Omit<Job, 'id' | 'created_at' | 'updated_at'>): Promise<Job> => {
@@ -785,6 +839,51 @@ export interface AuditLog {
   created_at: string;
   users?: { first_name?: string; last_name?: string };
 }
+
+export type AttendanceEventType = 'sign_in' | 'sign_out';
+
+export interface AttendanceLog {
+  id: string;
+  user_id: string;
+  event_type: AttendanceEventType;
+  source: string;
+  user_agent?: string;
+  metadata?: Record<string, unknown>;
+  recorded_at: string;
+  users?: { first_name?: string; last_name?: string; email?: string; role?: string };
+}
+
+export const recordAttendanceEvent = async (
+  userId: string,
+  eventType: AttendanceEventType,
+  source = 'web_admin',
+): Promise<void> => {
+  const { error } = await supabase.from('attendance_logs').insert({
+    user_id: userId,
+    event_type: eventType,
+    source,
+    user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+    metadata: {
+      path: typeof window !== 'undefined' ? window.location.pathname : undefined,
+      recorded_by: source,
+    },
+  });
+  if (error) throw error;
+};
+
+export const getAttendanceLogs = async (): Promise<AttendanceLog[]> => {
+  const { data, error } = await supabase
+    .from('attendance_logs')
+    .select(`
+      *,
+      users (first_name, last_name, email, role)
+    `)
+    .order('recorded_at', { ascending: false })
+    .limit(1000);
+
+  if (error) throw error;
+  return data || [];
+};
 
 export const getAuditLogs = async (): Promise<AuditLog[]> => {
   const { data, error } = await supabase

@@ -17,6 +17,7 @@ import {
   Building2,
   Package,
   Contact,
+  Clock3,
   CalendarClock,
   FolderOpen,
   MessageSquare,
@@ -189,6 +190,7 @@ const DashboardLayout: React.FC = () => {
         title: 'Monitoring',
         items: [
           { icon: MapPin, label: 'Live Tracking', path: '/admin/tracking', requiredRole: ['super_admin'] },
+          { icon: Clock3, label: 'Attendance', path: '/admin/tracking/attendance', requiredRole: ['super_admin', 'admin'] },
         ],
       },
       {

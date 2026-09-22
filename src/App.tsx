@@ -12,6 +12,7 @@ const UsersPage = lazy(() => import('./pages/dashboard/UsersPage'));
 const BranchesPage = lazy(() => import('./pages/dashboard/BranchesPage'));
 const EquipmentPage = lazy(() => import('./pages/dashboard/EquipmentPage'));
 const LiveTrackingPage = lazy(() => import('./pages/dashboard/LiveTrackingPage'));
+const AttendancePage = lazy(() => import('./pages/dashboard/AttendancePage'));
 const ReportsDashboard = lazy(() => import('./pages/dashboard/ReportsDashboard'));
 const ClientsPage = lazy(() => import('./pages/dashboard/ClientsPage'));
 const SettingsPage = lazy(() => import('./pages/dashboard/SettingsPage'));
@@ -103,7 +104,7 @@ function App() {
             <Route path="tracking/geofence" element={<PlaceholderPage title="Geo-Fence Management" variant="table" />} />
             <Route path="tracking/sites" element={<PlaceholderPage title="Site Locations" variant="table" />} />
             <Route path="tracking/routes" element={<PlaceholderPage title="Route History" variant="table" />} />
-            <Route path="tracking/attendance" element={<PlaceholderPage title="Attendance Tracking" variant="table" />} />
+            <Route path="tracking/attendance" element={<AttendancePage />} />
             <Route path="tracking/checkins" element={<PlaceholderPage title="Check-In / Check-Out Logs" variant="table" />} />
             <Route path="approvals" element={<ReportsDashboard />} />
             <Route path="reports" element={<ReportsDashboard />} />
