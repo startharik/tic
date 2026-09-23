@@ -313,6 +313,9 @@ const JobDetailsPage: React.FC = () => {
                   </div>
                   <div>
                     <p className="text-xs font-medium text-slate-500 uppercase">Site Location</p>
+                    {job.location_name && (
+                      <p className="text-sm font-semibold text-slate-900">{job.location_name}</p>
+                    )}
                     <p className="text-sm font-semibold text-slate-900">{job.site_address || 'N/A'}</p>
                     {typeof job.site_latitude === 'number' &&
                       typeof job.site_longitude === 'number' &&

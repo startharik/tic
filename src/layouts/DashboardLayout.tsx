@@ -191,6 +191,7 @@ const DashboardLayout: React.FC = () => {
         items: [
           { icon: MapPin, label: 'Live Tracking', path: '/admin/tracking', requiredRole: ['super_admin'] },
           { icon: Clock3, label: 'Attendance', path: '/admin/tracking/attendance', requiredRole: ['super_admin', 'admin'] },
+          { icon: ClipboardCheck, label: 'Sales Visit Tasks', path: '/admin/sales-visit-tasks', requiredRole: ['super_admin', 'admin', 'coordinator', 'operation_manager'] },
         ],
       },
       {

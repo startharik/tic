@@ -45,6 +45,7 @@ const AuditLogsPage = lazy(() => import('./pages/dashboard/AuditLogsPage'));
 const CreateEquipmentPage = lazy(() => import('./pages/dashboard/CreateEquipmentPage'));
 const EditEquipmentPage = lazy(() => import('./pages/dashboard/EditEquipmentPage'));
 const SchedulingPage = lazy(() => import('./pages/dashboard/SchedulingPage'));
+const SalesVisitTasksPage = lazy(() => import('./pages/dashboard/SalesVisitTasksPage'));
 
 const AppShellFallback = () => (
   <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -105,6 +106,7 @@ function App() {
             <Route path="tracking/sites" element={<PlaceholderPage title="Site Locations" variant="table" />} />
             <Route path="tracking/routes" element={<PlaceholderPage title="Route History" variant="table" />} />
             <Route path="tracking/attendance" element={<AttendancePage />} />
+            <Route path="sales-visit-tasks" element={<SalesVisitTasksPage />} />
             <Route path="tracking/checkins" element={<PlaceholderPage title="Check-In / Check-Out Logs" variant="table" />} />
             <Route path="approvals" element={<ReportsDashboard />} />
             <Route path="reports" element={<ReportsDashboard />} />

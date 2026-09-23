@@ -139,6 +139,7 @@ export interface Job {
     jo_number?: string;
     task_number?: string;
     site_address?: string;
+    location_name?: string;
     site_latitude?: number;
     site_longitude?: number;
     scheduled_date?: string;
@@ -910,6 +911,29 @@ export interface LocationTracking {
   users?: { first_name?: string; last_name?: string; role?: string };
   jobs?: { title?: string };
 }
+
+export interface SalesVisitTask {
+  id: string;
+  sales_person_id: string;
+  client_name: string;
+  area: string;
+  purpose: string;
+  visit_date: string;
+  status: 'submitted' | 'reviewed';
+  created_at: string;
+  updated_at: string;
+  users?: { first_name?: string; last_name?: string; email?: string };
+}
+
+export const getSalesVisitTasks = async (): Promise<SalesVisitTask[]> => {
+  const { data, error } = await supabase
+    .from('sales_visit_tasks')
+    .select('*, users!sales_visit_tasks_sales_person_id_fkey(first_name, last_name, email)')
+    .order('visit_date', { ascending: false })
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+};
 
 export const getLocationTracking = async (): Promise<LocationTracking[]> => {
   const cached = getCachedValue<LocationTracking[]>('locationTracking');

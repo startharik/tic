@@ -16,16 +16,26 @@ import type { AttendanceLog, LocationTracking, User } from '../../services/supab
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 
-const engineerMarkerIcon = L.divIcon({
+const escapeHtml = (value: string) =>
+  value.replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;',
+  })[character] || character);
+
+const createUserMarkerIcon = (name: string) => L.divIcon({
   className: 'aig-map-marker',
   html: `
+    <div class="aig-map-marker__label">${escapeHtml(name)}</div>
     <div class="aig-map-marker__pin">
       <div class="aig-map-marker__inner"></div>
     </div>
   `,
-  iconSize: [20, 20],
-  iconAnchor: [10, 20],
-  popupAnchor: [0, -18],
+  iconSize: [20, 46],
+  iconAnchor: [10, 40],
+  popupAnchor: [0, -40],
 });
 
 const BAHRAIN_TIME_ZONE = 'Asia/Bahrain';
@@ -284,7 +294,7 @@ const LiveTrackingPage: React.FC = () => {
             {selectedUser && <FlyTo center={[selectedUser.lat, selectedUser.lng]} zoom={10} />}
             <MapControls />
             {onlineUsers.map((user) => (
-              <Marker key={user.id} position={[user.lat, user.lng]} icon={engineerMarkerIcon}>
+              <Marker key={user.id} position={[user.lat, user.lng]} icon={createUserMarkerIcon(user.name)}>
                 <Popup>
                   <div className="font-semibold">{user.name}</div>
                   <div className="text-sm">{user.role.replace('_', ' ')}</div>

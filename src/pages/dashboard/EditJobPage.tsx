@@ -15,7 +15,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getClients, getUsers, getBranches, getEquipment, getJob, updateJob, geocodeAddressNominatim, createNotification, getSavedLocations } from '../../services/supabaseService';
+import { getClients, getUsers, getBranches, getEquipment, getJob, updateJob, createClient, createEquipment, geocodeAddressNominatim, createNotification, getSavedLocations } from '../../services/supabaseService';
 import type { Client, User, Branch, Equipment, SavedLocation } from '../../services/supabaseService';
 import { MapContainer, Marker, TileLayer, useMapEvents, Popup } from 'react-leaflet';
 import { supabase } from '../../lib/supabase';
@@ -94,8 +94,10 @@ const EditJobPage: React.FC = () => {
   const [formErrors, setFormErrors] = useState<{ jo_number?: string; task_number?: string }>({});
   const [formData, setFormData] = useState({
     client_id: '',
+    client_name: '',
     branch_id: '',
     equipment_id: '',
+    equipment_name: '',
     assigned_to: '',
     trainer_id: '',
     sales_person_id: '',
@@ -103,6 +105,7 @@ const EditJobPage: React.FC = () => {
     description: '',
     status: 'assigned' as string,
     priority: 'medium' as string,
+    location_name: '',
     type: 'inspection' as string,
     service_type: 'accredited' as string,
     jo_number: '',
@@ -196,8 +199,10 @@ const EditJobPage: React.FC = () => {
         setInitialSalesPersonId(jobData.sales_person_id || '');
         setFormData({
           client_id: jobData.client_id || '',
+          client_name: jobData.clients?.name || '',
           branch_id: jobData.branch_id || '',
           equipment_id: jobData.equipment_id || '',
+          equipment_name: jobData.equipment?.name || '',
           assigned_to: jobData.assigned_to || '',
           trainer_id: jobData.trainer_id || '',
           sales_person_id: jobData.sales_person_id || '',
@@ -205,6 +210,7 @@ const EditJobPage: React.FC = () => {
           description: jobData.description || '',
           status: jobData.status as any,
           priority: jobData.priority as any,
+          location_name: jobData.location_name || '',
           type: jobData.type || 'inspection',
           service_type: jobData.service_type || 'accredited',
           jo_number: jobData.jo_number || '',
@@ -252,10 +258,28 @@ const EditJobPage: React.FC = () => {
         const countryHint = selectedBranch?.countries?.name;
         newCoords = await geocodeAddressNominatim(address, { countryHint });
       }
+      let clientId = formData.client_id;
+      if (!clientId && formData.client_name.trim()) {
+        const createdClient = await createClient({ name: formData.client_name.trim() });
+        clientId = createdClient.id;
+      }
+      if (!clientId) throw new Error('Please select an existing client or enter a new client name.');
+
+      let equipmentId = formData.equipment_id;
+      if (!equipmentId && formData.equipment_name.trim()) {
+        const createdEquipment = await createEquipment({
+          client_id: clientId,
+          branch_id: formData.branch_id || undefined,
+          name: formData.equipment_name.trim(),
+          status: 'active',
+        });
+        equipmentId = createdEquipment.id;
+      }
+
       const dataToSubmit = {
-        client_id: formData.client_id,
+        client_id: clientId,
         branch_id: formData.branch_id || undefined,
-        equipment_id: formData.equipment_id || undefined,
+        equipment_id: equipmentId || undefined,
         assigned_to: formData.assigned_to || undefined,
         trainer_id: formData.trainer_id || undefined,
         sales_person_id: formData.sales_person_id || undefined,
@@ -263,6 +287,7 @@ const EditJobPage: React.FC = () => {
         description: formData.description || undefined,
         status: formData.status,
         priority: formData.priority,
+        location_name: formData.location_name.trim() || undefined,
         type: formData.type,
         service_type: formData.service_type,
         jo_number: formData.jo_number.trim(),
@@ -469,17 +494,20 @@ const EditJobPage: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700">Client Name</label>
-                  <select 
+                  <input
                     required
-                    value={formData.client_id}
-                    onChange={(e) => setFormData({ ...formData, client_id: e.target.value })}
+                    list="edit-job-client-options"
+                    value={formData.client_name}
+                    onChange={(e) => {
+                      const selected = clients.find((client) => client.name === e.target.value);
+                      setFormData({ ...formData, client_id: selected?.id || '', client_name: e.target.value });
+                    }}
                     className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
-                  >
-                    <option value="">Select Client</option>
-                    {clients.map((client) => (
-                      <option key={client.id} value={client.id}>{client.name}</option>
-                    ))}
-                  </select>
+                    placeholder="Select or enter client name"
+                  />
+                  <datalist id="edit-job-client-options">
+                    {clients.map((client) => <option key={client.id} value={client.name} />)}
+                  </datalist>
                 </div>
 
                 <div className="space-y-2">
@@ -524,20 +552,23 @@ const EditJobPage: React.FC = () => {
 
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700">Asset</label>
-                  <select
-                    value={formData.equipment_id}
-                    onChange={(e) => setFormData({ ...formData, equipment_id: e.target.value })}
+                  <input
+                    list="edit-job-equipment-options"
+                    value={formData.equipment_name}
+                    onChange={(e) => {
+                      const selected = equipmentList.find((equipment) => equipment.name === e.target.value && (!formData.client_id || equipment.client_id === formData.client_id));
+                      setFormData({ ...formData, equipment_id: selected?.id || '', equipment_name: e.target.value });
+                    }}
                     className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
-                  >
-                    <option value="">Select Asset</option>
+                    placeholder="Select or enter equipment name"
+                  />
+                  <datalist id="edit-job-equipment-options">
                     {equipmentList
                       .filter((eq) => (formData.client_id ? eq.client_id === formData.client_id : true))
                       .map((eq) => (
-                        <option key={eq.id} value={eq.id}>
-                          {eq.name}
-                        </option>
+                        <option key={eq.id} value={eq.name} />
                       ))}
-                  </select>
+                  </datalist>
                 </div>
 
                 <div className="space-y-2">
@@ -830,6 +861,15 @@ const EditJobPage: React.FC = () => {
                     </button>
                   ))}
                 </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Location Name</label>
+                <input
+                  value={formData.location_name}
+                  onChange={(e) => setFormData({ ...formData, location_name: e.target.value })}
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+                  placeholder="e.g. Manama, Askar"
+                />
               </div>
             </div>
           </section>
